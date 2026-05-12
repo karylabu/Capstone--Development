@@ -5,7 +5,6 @@ require_once 'includes/db.php';
 
 /* =========================
    CREATE USERS TABLE
-========================= */
 
 mysqli_query($conn, "
 CREATE TABLE IF NOT EXISTS users (
@@ -20,7 +19,6 @@ CREATE TABLE IF NOT EXISTS users (
 
 /* =========================
    LOGIN
-========================= */
 
 $error = '';
 

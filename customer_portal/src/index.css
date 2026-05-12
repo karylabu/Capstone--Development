@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 1. Global Base Styles */
+@layer base {
+  body {
+    @apply font-dmsans text-[#333] bg-[#f4f4f4] antialiased;
+  }
+}
+
+/* 2. Font Families (Custom Utilities) */
+.font-playfair { 
+  font-family: 'Playfair Display', serif; 
+}
+
+.font-dmsans { 
+  font-family: 'DM Sans', sans-serif; 
+}
+
+/* 3. Flying Animation Logic */
+@keyframes flyToCart {
+  0% { 
+    opacity: 1; 
+    transform: scale(1) rotate(0deg); 
+  }
+  100% { 
+    opacity: 0; 
+    left: 90vw; 
+    top: 20px; 
+    transform: scale(0.1) rotate(45deg); 
+  }
+}
+
+.animate-fly-to-cart {
+  position: fixed;
+  z-index: 9999;
+  animation: flyToCart 0.8s cubic-bezier(0.42, 0, 0.58, 1) forwards;
+  pointer-events: none;
+}
+
+/* 4. Cart Modal Overlay & Scrollbar */
+.cart-modal-overlay {
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+}
+
+/* Custom Scrollbar para sa listahan ng Cart Items */
+.cart-items-list::-webkit-scrollbar { 
+  width: 6px; 
+}
+
+.cart-items-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cart-items-list::-webkit-scrollbar-thumb { 
+  background: #e5e7eb; 
+  border-radius: 10px; 
+}
+
+.cart-items-list::-webkit-scrollbar-thumb:hover { 
+  background: #d1d5db; 
+}

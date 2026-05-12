@@ -13,7 +13,7 @@ export default function Menu({ onAddToCart }) {
     useState(null);
 
  useEffect(() => {
-  fetch('http://localhost/GitHub/Capstone--Development/customer/api_products.php?action=list')
+  fetch('http://localhost/pastry_system/customer/api_products.php?action=list')
     .then(res => res.json())
     .then(data => {
       if (Array.isArray(data)) {

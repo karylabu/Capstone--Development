@@ -1,6 +1,24 @@
 <?php
 session_start();
+
 require_once 'includes/db.php';
+
+/* =========================
+   CREATE USERS TABLE
+
+mysqli_query($conn, "
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255),
+    email VARCHAR(255) UNIQUE,
+    password VARCHAR(255),
+    role VARCHAR(50) DEFAULT 'customer',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+");
+
+/* =========================
+   LOGIN
 
 $error = '';
 
@@ -10,17 +28,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = trim($_POST['password'] ?? '');
 
     if (!$email || !$password) {
+
         $error = "Please fill all fields.";
+
     } else {
 
         $email = mysqli_real_escape_string($conn, $email);
 
         $query = mysqli_query(
             $conn,
-            "SELECT * FROM users 
-             WHERE email='$email' 
-             AND role='staff'
-             LIMIT 1"
+            "SELECT * FROM users WHERE email='$email' LIMIT 1"
         );
 
         if ($query && mysqli_num_rows($query) > 0) {
@@ -39,15 +56,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'role' => $user['role']
                 ];
 
-                header("Location: http://localhost:3000/pastry_system/staff");
-                exit;
+                /* =========================
+                   REDIRECT TO REACT APP
+                ========================= */
+
+               header("Location: http://localhost:3000/pastry_system/customer");
+exit;
 
             } else {
+
                 $error = "Incorrect password.";
             }
 
         } else {
-            $error = "Staff account not found.";
+
+            $error = "User not found.";
         }
     }
 }
@@ -60,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-<title>Staff Login</title>
+<title>Login</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
@@ -76,7 +99,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 body{
     min-height:100vh;
-    background: linear-gradient(135deg, #fff7f8, #ffe3eb);
+    background:
+    linear-gradient(
+        135deg,
+        #fff7f8,
+        #ffe3eb
+    );
     display:flex;
     align-items:center;
     justify-content:center;
@@ -84,7 +112,6 @@ body{
     position:relative;
 }
 
-/* decorative circles */
 .circle{
     position:absolute;
     border-radius:50%;
@@ -108,7 +135,6 @@ body{
     right:-80px;
 }
 
-/* CARD */
 .card{
     width:100%;
     max-width:430px;
@@ -117,7 +143,8 @@ body{
     border:1px solid rgba(255,255,255,.4);
     padding:42px;
     border-radius:34px;
-    box-shadow:0 10px 40px rgba(0,0,0,.08);
+    box-shadow:
+    0 10px 40px rgba(0,0,0,.08);
     position:relative;
     z-index:10;
 }
@@ -152,7 +179,6 @@ h1{
     font-size:13px;
 }
 
-/* inputs */
 .input-group{
     margin-bottom:18px;
 }
@@ -175,7 +201,6 @@ h1{
     box-shadow:0 0 0 4px rgba(212,175,55,.15);
 }
 
-/* button */
 button{
     width:100%;
     height:58px;
@@ -197,7 +222,6 @@ button:hover{
     transform:translateY(-2px);
 }
 
-/* footer */
 .bottom{
     text-align:center;
     margin-top:24px;
@@ -216,6 +240,7 @@ button:hover{
 }
 
 @media(max-width:500px){
+
     .card{
         margin:20px;
         padding:30px;
@@ -240,10 +265,10 @@ button:hover{
         Pastry Project
     </div>
 
-    <h1>Staff Login</h1>
+    <h1>Login</h1>
 
     <p class="subtitle">
-        Access your management dashboard
+        Welcome back to your account
     </p>
 
     <?php if($error): ?>
@@ -258,7 +283,7 @@ button:hover{
             <input
                 type="email"
                 name="email"
-                placeholder="Staff Email"
+                placeholder="Email Address"
                 required
             >
         </div>
@@ -279,10 +304,14 @@ button:hover{
     </form>
 
     <div class="bottom">
-        Authorized personnel only
+        Don't have an account?
+        <a href="register.php">
+            Sign up first
+        </a>
     </div>
 
 </div>
 
 </body>
 </html>
+

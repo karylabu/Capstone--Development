@@ -7,12 +7,10 @@ import {
 
 /* =========================
    CUSTOMER
-========================= */
 import CustomerApp from './customer/components/CustomerApp';
 
 /* =========================
    STAFF PAGES
-========================= */
 import DashboardStaff from './staff/pages/DashboardStaff';
 import Orders from './staff/pages/Orders';
 import Products from './staff/pages/Products'; // (if you already created this)
@@ -20,7 +18,6 @@ import Customers from './staff/pages/Customers';
 
 /* =========================
    MAIN APP ROUTER
-========================= */
 function App() {
 
   return (
@@ -75,6 +72,20 @@ function App() {
 
   );
 
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+// Dito natin tinatawag yung pinaghiwalay nating files
+// src/App.js
+import CustomerApp from './customer/components/CustomerApp'; // Updated path 
+
+function App() {
+  return (
+
+<Router basename="/pastry_system/customer">
+  <Routes>
+    <Route path="/*" element={<CustomerApp />} />
+  </Routes>
+</Router>
+  );
 }
 
 export default App;

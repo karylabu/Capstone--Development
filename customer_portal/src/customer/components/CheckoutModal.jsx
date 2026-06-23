@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { BASE, CUSTOMER_BASE } from '../../services/config';
 
 // Import marker icon images
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
@@ -188,6 +189,15 @@ export default function CheckoutModal({
       return;
     }
 
+    // FIX: Validate GCash number format (must be 09XXXXXXXXX, 11 digits)
+    if (checkoutData.payment === "GCash") {
+      const gcashRegex = /^09\d{9}$/;
+      if (!gcashRegex.test(checkoutData.phone)) {
+        alert("Please enter a valid GCash number (e.g. 09XXXXXXXXX).");
+        return;
+      }
+    }
+
     if (
       !checkoutData.address &&
       checkoutData.method === "Deliver"
@@ -199,6 +209,14 @@ export default function CheckoutModal({
     setLoading(true);
 
     try {
+
+      const savedUser = (() => {
+        try {
+          return JSON.parse(localStorage.getItem("user") || "{}") || {};
+        } catch {
+          return {};
+        }
+      })();
 
       const payload = {
         items: groupedItems.map((item) => ({
@@ -212,6 +230,10 @@ export default function CheckoutModal({
         delivery_fee: deliveryFee,
         total,
 
+        user_id: savedUser.id || 0, // Include user_id for proper order association
+        customer: savedUser.name || "",
+        email: savedUser.email || "",
+
         method: checkoutData.method,
         payment: checkoutData.payment,
         address: checkoutData.address,
@@ -221,39 +243,130 @@ export default function CheckoutModal({
         longitude: checkoutData.lng,
       };
 
-      const response = await fetch(
-        "http://localhost/pastry_system/customer/api_orders.php",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
+      /* =========================
+        SAVE ORDER
+      ========================= */
+
+      const orderUrl = `${CUSTOMER_BASE}/api_orders.php`;
+      console.log("Placing order to", orderUrl, payload);
+      const getCookie = (name) => {
+        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        return match ? decodeURIComponent(match[2]) : null;
+      };
+
+      const xsrf = getCookie('XSRF-TOKEN');
+
+      const response = await fetch(orderUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(xsrf ? { 'X-XSRF-TOKEN': xsrf } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      let result;
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Order API returned non-OK:', response.status, text);
+        alert(`Order failed: ${response.status} - ${text}`);
+        return;
+      }
+
+      try {
+        result = await response.json();
+      } catch (parseErr) {
+        const text = await response.text().catch(() => '<no body>');
+        console.error('Failed to parse JSON from order API:', parseErr, text);
+        alert(`Server returned invalid response: ${text}`);
+        return;
+      }
+
+      console.log('Order API result:', result);
+
+      if (result.status !== "success") {
+        alert(result.message || "Order failed.");
+        return;
+      }
+
+      /* =========================
+         PAYMONGO FLOW
+      ========================= */
+
+      if (checkoutData.payment === "GCash") {
+
+        const paymentResponse = await fetch(
+          `${CUSTOMER_BASE}/create_payment.php`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(xsrf ? { 'X-XSRF-TOKEN': xsrf } : {}),
+            },
+            body: JSON.stringify({
+              order_id: result.order_id,
+              amount: total,
+              payment_method: checkoutData.payment,
+            }),
+          }
+        );
+
+        if (!paymentResponse.ok) {
+          let errMsg = "PayMongo payment creation failed.";
+          try {
+            const err = await paymentResponse.json();
+            // FIX: PayMongo error shape is err.errors[0].detail, not err.error
+            errMsg =
+              err?.errors?.[0]?.detail ||
+              err?.error ||
+              err?.message ||
+              JSON.stringify(err);
+          } catch (e) {}
+          alert(errMsg);
+          return;
         }
-      );
 
-      const result = await response.json();
+        const paymentData = await paymentResponse.json();
 
-      if (result.status === "success") {
+        console.log('PayMongo response:', paymentData);
 
+        const checkoutUrl = paymentData?.data?.attributes?.checkout_url;
+        if (!checkoutUrl) {
+          alert("Payment URL not returned by PayMongo.");
+          return;
+        }
+
+        // FIX: Clear cart AFTER we have a valid checkout URL, right before redirect.
+        // Previously the cart was cleared before the URL check, so a missing URL
+        // would wipe the cart with no payment made.
         setCartItems([]);
 
-        onOrderPlaced(result.order_id, checkoutData);
+        // REDIRECT TO PAYMONGO
+        window.location.href = checkoutUrl;
 
-        onClose();
-
-      } else {
-        alert(result.message || "Order failed.");
+        return;
       }
+
+      /* =========================
+         COD FLOW
+      ========================= */
+
+      setCartItems([]);
+
+      onOrderPlaced(result.order_id, checkoutData);
+
+      onClose();
 
     } catch (err) {
 
-      console.error(err);
-
-      alert("Server error. Please try again.");
+      console.error('Place order error:', err);
+      const msg = (err && err.message) ? err.message : String(err);
+      alert(`Server error: ${msg}`);
 
     } finally {
+
       setLoading(false);
+
     }
   };
 
@@ -284,7 +397,7 @@ export default function CheckoutModal({
           </button>
 
           {/* LEFT SIDE */}
-          <div className="flex-1 p-8 overflow-y-auto">
+          <div className="flex-1 p-8 overflow-y-auto relative z-50 pointer-events-auto">
 
             <h2 className="text-lg font-normal text-gray-800 mb-6">
               Delivery Details
@@ -325,8 +438,39 @@ export default function CheckoutModal({
 
             </div>
 
+            {/* PAYMENT */}
+            <div className="mb-6 space-y-2">
+
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest">
+                Payment Method
+              </p>
+
+              <div className="flex gap-2">
+                {["COD", "GCash"].map((paymentOption) => (
+                  <button
+                    key={paymentOption}
+                    onClick={() =>
+                      setCheckoutData({
+                        ...checkoutData,
+                        payment: paymentOption,
+                      })
+                    }
+                    className={`flex-1 py-2 rounded-xl border text-[11px]
+                    ${
+                      checkoutData.payment === paymentOption
+                        ? "bg-black text-white"
+                        : "bg-white text-gray-500"
+                    }`}
+                  >
+                    {paymentOption}
+                  </button>
+                ))}
+              </div>
+
+            </div>
+
             {/* CONTACT INFO */}
-            <div className="space-y-3">
+            <div className="space-y-3 relative z-50 pointer-events-auto">
 
               <p className="text-[10px] text-gray-400 uppercase tracking-widest">
                 Contact Info
@@ -339,8 +483,10 @@ export default function CheckoutModal({
                   <input
                     type="text"
                     placeholder="Address"
-                    className="w-full p-3 bg-gray-50 rounded-xl text-[11px] outline-none"
+                    autoComplete="street-address"
+                    className="w-full p-3 bg-gray-50 rounded-xl text-[11px] outline-none relative z-[9999] pointer-events-auto"
                     value={checkoutData.address}
+                    onClick={(e) => e.currentTarget.focus()}
                     onChange={(e) =>
                       setCheckoutData({
                         ...checkoutData,
@@ -352,7 +498,7 @@ export default function CheckoutModal({
                   {/* MAP */}
                   <div
                     id="checkout-map"
-                    className="w-full h-48 rounded-xl border bg-gray-100 mt-2 overflow-hidden z-0"
+                    className="w-full h-48 rounded-xl border bg-gray-100 mt-2 overflow-hidden"
                   />
 
                 </>
@@ -360,10 +506,16 @@ export default function CheckoutModal({
 
               {/* PHONE */}
               <input
-                type="text"
-                placeholder="Phone Number"
-                className="w-full p-3 bg-gray-50 rounded-xl text-[11px] outline-none"
+                type="tel"
+                autoComplete="tel"
+                placeholder={
+                  checkoutData.payment === "GCash"
+                    ? "GCash Number (09XXXXXXXXX)"
+                    : "Phone Number"
+                }
+                className="w-full p-3 bg-gray-50 rounded-xl text-[11px] outline-none relative z-[9999] pointer-events-auto"
                 value={checkoutData.phone}
+                onClick={(e) => e.currentTarget.focus()}
                 onChange={(e) =>
                   setCheckoutData({
                     ...checkoutData,
@@ -371,6 +523,12 @@ export default function CheckoutModal({
                   })
                 }
               />
+
+              {checkoutData.payment === "GCash" && (
+                <p className="text-[9px] text-gray-500 mt-2">
+                  Enter your GCash number (09XXXXXXXXX) to receive a payment link.
+                </p>
+              )}
 
             </div>
 
@@ -399,7 +557,7 @@ export default function CheckoutModal({
                   <div key={idx} className="flex gap-3">
 
                     <img
-                      src={`http://localhost/pastry_system/uploads/${item.image}`}
+                      src={`${BASE}/uploads/${item.image}`}
                       className="w-10 h-10 rounded-lg object-cover"
                       alt=""
                     />
@@ -467,7 +625,11 @@ export default function CheckoutModal({
                 disabled={loading}
                 className="w-full py-4 bg-black text-white text-[11px] rounded-2xl mt-4 tracking-widest transition active:scale-95 disabled:bg-gray-300"
               >
-                {loading ? "SAVING..." : "PLACE ORDER"}
+                {loading
+                  ? checkoutData.payment === "GCash"
+                    ? "REDIRECTING..."
+                    : "SAVING..."
+                  : "PLACE ORDER"}
               </button>
 
             </div>

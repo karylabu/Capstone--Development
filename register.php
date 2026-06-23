@@ -25,71 +25,58 @@ CREATE TABLE IF NOT EXISTS users (
 /* =========================
    REGISTER
 ========================= */
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $name     = trim($_POST['name']);
+    $email    = trim($_POST['email']);
+    $password = trim($_POST['password']);
+
+    // ✅ Add this check
+    if (!isset($_POST['agree_terms']) || !isset($_POST['agree_privacy'])) {
+        $error = "You must agree to the Terms & Conditions and Privacy Policy to create an account.";
+    } elseif (!$name || !$email || !$password) {
+        $error = "Please fill all fields.";
+    } else {
+        // ... rest of your existing register code
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $name = trim($_POST['name']);
-    $email = trim($_POST['email']);
+    $name     = trim($_POST['name']);
+    $email    = trim($_POST['email']);
     $password = trim($_POST['password']);
 
-    if (!$name || !$email || !$password) {
+    if (!isset($_POST['agree_terms']) || !isset($_POST['agree_privacy'])) {
+        $error = "You must agree to the Terms & Conditions and Privacy Policy.";
 
+    } elseif (!$name || !$email || !$password) {
         $error = "Please fill all fields.";
 
     } else {
 
-        $name = mysqli_real_escape_string($conn, $name);
+        $name  = mysqli_real_escape_string($conn, $name);
         $email = mysqli_real_escape_string($conn, $email);
 
-        /* =========================
-           CHECK EMAIL
-        ========================= */
-
-        $check = mysqli_query(
-            $conn,
-            "SELECT id FROM users WHERE email='$email' LIMIT 1"
-        );
+        $check = mysqli_query($conn, "SELECT id FROM users WHERE email='$email' LIMIT 1");
 
         if (mysqli_num_rows($check) > 0) {
-
             $error = "Email already exists.";
 
         } else {
 
-            // pwede plain or hashed
-            // $hashed = password_hash($password, PASSWORD_DEFAULT);
+            // ✅ Hash the password
+            $hashed  = password_hash($password, PASSWORD_DEFAULT);
+            $hashed  = mysqli_real_escape_string($conn, $hashed);
 
-            $password = mysqli_real_escape_string(
-                $conn,
-                $password
-            );
-
-            $insert = mysqli_query(
-                $conn,
-                "
-                INSERT INTO users
-                (
-                    name,
-                    email,
-                    password,
-                    role
-                )
-                VALUES
-                (
-                    '$name',
-                    '$email',
-                    '$password',
-                    'customer'
-                )
-                "
-            );
+            $insert = mysqli_query($conn, "
+                INSERT INTO users (name, email, password, role)
+                VALUES ('$name', '$email', '$hashed', 'customer')
+            ");
 
             if ($insert) {
-
                 $success = "Account created successfully.";
-
             } else {
-
                 $error = mysqli_error($conn);
             }
         }
@@ -332,6 +319,22 @@ button:hover{
             >
         </div>
 
+        <div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:12px; font-size:13px; color:#777;">
+    <input type="checkbox" id="agree_terms" name="agree_terms" required style="width:18px; height:18px; margin-top:2px; flex-shrink:0;">
+    <label for="agree_terms">
+        I have read and agree to the
+        <a href="http://localhost/GitHub/Capstone--Development/terms.html" target="_blank" style="color:#d4af37; font-weight:700;">Terms & Conditions</a>
+    </label>
+</div>
+
+<div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:18px; font-size:13px; color:#777;">
+    <input type="checkbox" id="agree_privacy" name="agree_privacy" required style="width:18px; height:18px; margin-top:2px; flex-shrink:0;">
+    <label for="agree_privacy">
+        I have read and agree to the
+        <a href="http://localhost/GitHub/Capstone--Development/privacy.html" target="_blank" style="color:#d4af37; font-weight:700;">Privacy Policy</a>
+    </label>
+</div>
+
         <button type="submit">
             Create Account
         </button>
@@ -340,13 +343,37 @@ button:hover{
 
     <div class="bottom">
         Already have an account?
-        <a href="login.php">
-            Login
-        </a>
-    </div>
+       <a href="http://localhost:3000/pastry_system/customer/login">
+    Login
+</a>
 
 </div>
 
+<script>
+  const termsBox   = document.getElementById('agree_terms');
+  const privacyBox = document.getElementById('agree_privacy');
+  const submitBtn  = document.querySelector('button[type="submit"]');
+
+  // Start disabled
+  submitBtn.disabled = true;
+  submitBtn.style.opacity = '0.4';
+  submitBtn.style.cursor = 'not-allowed';
+
+  function checkboxes() {
+    if (termsBox.checked && privacyBox.checked) {
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '1';
+      submitBtn.style.cursor = 'pointer';
+    } else {
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.4';
+      submitBtn.style.cursor = 'not-allowed';
+    }
+  }
+
+  termsBox.addEventListener('change', checkboxes);
+  privacyBox.addEventListener('change', checkboxes);
+</script>
 </body>
 </html>
 

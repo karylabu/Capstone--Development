@@ -1,406 +1,252 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-
-import Navbar from '../components/Navbar';
-
-import {
-  DollarSign,
-  ClipboardList,
-  Users,
-  TrendingUp,
-  Package
-} from 'lucide-react';
-
-function StatCard({ title, value, icon: Icon, color }) {
-
-  return (
-
-    <motion.div
-      whileHover={{ y: -5 }}
-      className="bg-white rounded-[30px] p-6 shadow-lg border border-[#f3f3f3]"
-    >
-
-      <div className="flex items-center justify-between">
-
-        <div>
-
-          <p className="text-[11px] uppercase tracking-[0.3em] text-gray-400 font-black mb-3">
-
-            {title}
-
-          </p>
-
-          <h2 className="text-4xl font-serif font-bold">
-
-            {value}
-
-          </h2>
-
-        </div>
-
-        <div className={`${color} w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-lg`}>
-
-          <Icon size={30} />
-
-        </div>
-
-      </div>
-
-    </motion.div>
-
-  );
-
-}
+import React, { useEffect, useState, useMemo } from "react";
+import { motion } from "framer-motion";
+import { TrendingUp, Users, ShoppingCart } from "lucide-react";
+import AdminNavbar from "../components/AdminNavbar";
+import { CUSTOMER_BASE, STAFF_BASE } from "../../services/config";
 
 export default function Dashboard() {
+  const [orders, setOrders] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  /* =========================
+     FETCH ORDERS
+  ========================= */
+  useEffect(() => {
+    fetch(`${STAFF_BASE}/api_orders.php`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setOrders(data);
+        } else {
+          setOrders([]);
+        }
+      })
+      .catch((err) => {
+        console.log(err);
+        setOrders([]);
+      });
+  }, []);
+
+  /* =========================
+     FETCH PRODUCTS
+  ========================= */
+  useEffect(() => {
+    fetch(`${CUSTOMER_BASE}/api_products.php?action=list`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setProducts(data);
+        } else {
+          setProducts([]);
+        }
+      })
+      .catch((err) => {
+        console.log(err);
+        setProducts([]);
+      });
+  }, []);
+
+  /* =========================
+     FETCH CUSTOMERS
+  ========================= */
+  useEffect(() => {
+    setLoading(false);
+  }, []);
+
+  /* =========================
+     ANALYTICS - Revenue
+  ========================= */
+  const totalRevenue = useMemo(() => {
+    return orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  }, [orders]);
+
+  /* =========================
+     ANALYTICS - Most Ordered Products
+  ========================= */
+  const mostOrderedProducts = useMemo(() => {
+    const tally = {};
+    orders.forEach(order => {
+      if (Array.isArray(order.items)) {
+        order.items.forEach(item => {
+          const name = item.name || "Unknown";
+          tally[name] = (tally[name] || 0) + Number(item.qty || 1);
+        });
+      }
+    });
+    return Object.entries(tally)
+      .map(([name, qty]) => ({ name, qty }))
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 5);
+  }, [orders]);
+
+  /* =========================
+     ANALYTICS - Customer Activity
+  ========================= */
+  const uniqueCustomers = useMemo(() => {
+    const unique = new Set();
+    orders.forEach(order => {
+      const email = order.email?.toLowerCase();
+      if (email) unique.add(email);
+    });
+    return unique.size;
+  }, [orders]);
+
+  /* =========================
+     ANALYTICS - System Statistics
+  ========================= */
+  const systemStats = useMemo(() => {
+    const completed = orders.filter(o => o.status === "Completed").length;
+    const pending = orders.filter(o => o.status === "Pending").length;
+    const avgOrderValue = orders.length ? totalRevenue / orders.length : 0;
+    return { completed, pending, avgOrderValue };
+  }, [orders, totalRevenue]);
 
   return (
+    <div className="bg-[#f7f7f7] min-h-screen">
+      <AdminNavbar />
 
-    <div className="bg-[#faf7f2] min-h-screen font-['DM_Sans']">
-
-      {/* NAVBAR */}
-
-      <Navbar />
-
-      {/* HERO */}
-
-      <div className="relative overflow-hidden bg-black h-[320px] flex items-center">
-
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-40"
-          style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1517433670267-08bbd4be890f?q=80&w=2000')",
-          }}
-        />
-
-        <div className="relative z-10 max-w-7xl mx-auto px-10 w-full">
-
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-[#d4af37] text-[10px] uppercase tracking-[0.4em] font-black mb-4"
-          >
-
-            Pastry Admin Panel
-
-          </motion.p>
-
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-white text-6xl font-serif font-bold leading-tight"
-          >
-
+      {/* HERO SECTION */}
+      <div
+        className="relative h-[540px] bg-cover bg-center flex items-center justify-center"
+        style={{
+          backgroundImage:
+            "url('https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=1974&auto=format&fit=crop')",
+        }}
+      >
+        <div className="absolute inset-0 bg-black/55"></div>
+        <div className="relative z-10 text-center text-white px-6">
+          <p className="uppercase tracking-[6px] text-gold text-sm mb-5">
+            Pastry Project Admin
+          </p>
+          <h1 className="text-6xl md:text-7xl font-black leading-tight">
             Manage Your
             <br />
-
-            <span className="italic text-[#d4af37]">
-
-              Pastry Business.
-
-            </span>
-
-          </motion.h1>
-
+            <span className="text-gold italic">Pastry Shop</span>
+          </h1>
         </div>
-
       </div>
 
-      <div className="max-w-7xl mx-auto px-10 py-12">
-
-        {/* STATS */}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8 mb-14">
-
-          <StatCard
-            title="Total Orders"
-            value="152"
-            icon={ClipboardList}
-            color="bg-[#c08457]"
-          />
-
-          <StatCard
-            title="Revenue"
-            value="₱24K"
-            icon={DollarSign}
-            color="bg-[#4f772d]"
-          />
-
-          <StatCard
-            title="Products"
-            value="48"
-            icon={Package}
-            color="bg-[#b56576]"
-          />
-
-          <StatCard
-            title="Customers"
-            value="87"
-            icon={Users}
-            color="bg-[#457b9d]"
-          />
-
-        </div>
-
-        {/* MAIN GRID */}
-
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-
-          {/* RECENT ORDERS */}
-
-          <div className="xl:col-span-2 bg-white rounded-[35px] p-8 shadow-lg">
-
-            <div className="flex items-center justify-between mb-8">
-
-              <div>
-
-                <p className="text-[#d4af37] text-[10px] uppercase tracking-[0.4em] font-black mb-2">
-
-                  Orders
-
-                </p>
-
-                <h2 className="text-3xl font-serif font-bold">
-
-                  Recent Orders
-
-                </h2>
-
-              </div>
-
-              <button className="bg-black text-white px-6 py-3 rounded-full text-[11px] uppercase tracking-[0.2em] font-black hover:bg-[#d4af37] hover:text-black transition-all">
-
-                View All
-
-              </button>
-
-            </div>
-
-            <div className="overflow-x-auto">
-
-              <table className="w-full min-w-[700px]">
-
-                <thead>
-
-                  <tr className="border-b">
-
-                    <th className="text-left pb-5 text-gray-400 text-[11px] uppercase tracking-[0.2em]">
-
-                      Order
-
-                    </th>
-
-                    <th className="text-left pb-5 text-gray-400 text-[11px] uppercase tracking-[0.2em]">
-
-                      Customer
-
-                    </th>
-
-                    <th className="text-left pb-5 text-gray-400 text-[11px] uppercase tracking-[0.2em]">
-
-                      Product
-
-                    </th>
-
-                    <th className="text-left pb-5 text-gray-400 text-[11px] uppercase tracking-[0.2em]">
-
-                      Total
-
-                    </th>
-
-                    <th className="text-left pb-5 text-gray-400 text-[11px] uppercase tracking-[0.2em]">
-
-                      Status
-
-                    </th>
-
-                  </tr>
-
-                </thead>
-
-                <tbody>
-
-                  <tr className="border-b hover:bg-[#faf7f2] transition-all">
-
-                    <td className="py-5 font-bold">
-
-                      #1021
-
-                    </td>
-
-                    <td>Maria</td>
-
-                    <td>Chocolate Cake</td>
-
-                    <td>₱850</td>
-
-                    <td>
-
-                      <span className="bg-yellow-100 text-yellow-700 px-4 py-2 rounded-full text-xs font-bold">
-
-                        Preparing
-
-                      </span>
-
-                    </td>
-
-                  </tr>
-
-                  <tr className="border-b hover:bg-[#faf7f2] transition-all">
-
-                    <td className="py-5 font-bold">
-
-                      #1022
-
-                    </td>
-
-                    <td>John</td>
-
-                    <td>Custom Cake</td>
-
-                    <td>₱1500</td>
-
-                    <td>
-
-                      <span className="bg-green-100 text-green-700 px-4 py-2 rounded-full text-xs font-bold">
-
-                        Completed
-
-                      </span>
-
-                    </td>
-
-                  </tr>
-
-                </tbody>
-
-              </table>
-
-            </div>
-
-          </div>
-
-          {/* SIDE PANEL */}
-
-          <div className="space-y-8">
-
-            {/* TOP PRODUCTS */}
-
-            <div className="bg-white rounded-[35px] p-8 shadow-lg">
-
-              <div className="flex items-center gap-3 mb-8">
-
-                <TrendingUp className="text-[#d4af37]" />
-
-                <h2 className="text-2xl font-serif font-bold">
-
-                  Top Products
-
-                </h2>
-
-              </div>
-
-              <div className="space-y-5">
-
-                <div className="bg-[#faf7f2] rounded-3xl p-5 flex items-center justify-between">
-
-                  <div>
-
-                    <h3 className="font-bold">
-
-                      Chocolate Cake
-
-                    </h3>
-
-                    <p className="text-sm text-gray-500">
-
-                      35 orders
-
-                    </p>
-
-                  </div>
-
-                  <span className="font-black text-[#c08457]">
-
-                    ₱12K
-
-                  </span>
-
+      {/* MAIN CONTENT */}
+      <div className="max-w-7xl mx-auto px-6 py-14">
+        {loading ? (
+          <div className="text-center text-gray-500">Loading dashboard...</div>
+        ) : (
+          <>
+            {/* KPI CARDS */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-14">
+              <motion.div
+                whileHover={{ y: -4 }}
+                className="bg-white rounded-[28px] p-8 shadow-lg border border-gray-100"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-gray-400 text-[10px] uppercase tracking-[2px] font-bold">Total Revenue</p>
+                  <TrendingUp size={20} className="text-gold" />
                 </div>
+                <h2 className="text-4xl font-bold font-serif">₱{totalRevenue.toLocaleString()}</h2>
+                <p className="text-xs text-gray-500 mt-2">from {orders.length} orders</p>
+              </motion.div>
 
-                <div className="bg-[#faf7f2] rounded-3xl p-5 flex items-center justify-between">
-
-                  <div>
-
-                    <h3 className="font-bold">
-
-                      Strawberry Cake
-
-                    </h3>
-
-                    <p className="text-sm text-gray-500">
-
-                      28 orders
-
-                    </p>
-
-                  </div>
-
-                  <span className="font-black text-[#c08457]">
-
-                    ₱9K
-
-                  </span>
-
+              <motion.div
+                whileHover={{ y: -4 }}
+                className="bg-white rounded-[28px] p-8 shadow-lg border border-gray-100"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-gray-400 text-[10px] uppercase tracking-[2px] font-bold">Completed Orders</p>
+                  <ShoppingCart size={20} className="text-green-500" />
                 </div>
+                <h2 className="text-4xl font-bold font-serif">{systemStats.completed}</h2>
+                <p className="text-xs text-gray-500 mt-2">{orders.length > 0 ? Math.round((systemStats.completed / orders.length) * 100) : 0}% completion rate</p>
+              </motion.div>
 
-              </div>
+              <motion.div
+                whileHover={{ y: -4 }}
+                className="bg-white rounded-[28px] p-8 shadow-lg border border-gray-100"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-gray-400 text-[10px] uppercase tracking-[2px] font-bold">Avg Order Value</p>
+                  <TrendingUp size={20} className="text-blue-500" />
+                </div>
+                <h2 className="text-4xl font-bold font-serif">₱{Math.round(systemStats.avgOrderValue).toLocaleString()}</h2>
+                <p className="text-xs text-gray-500 mt-2">average per order</p>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ y: -4 }}
+                className="bg-white rounded-[28px] p-8 shadow-lg border border-gray-100"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-gray-400 text-[10px] uppercase tracking-[2px] font-bold">Unique Customers</p>
+                  <Users size={20} className="text-purple-500" />
+                </div>
+                <h2 className="text-4xl font-bold font-serif">{uniqueCustomers}</h2>
+                <p className="text-xs text-gray-500 mt-2">unique emails in orders</p>
+              </motion.div>
+            </div>
+
+            {/* ANALYTICS SECTION */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-14">
+              {/* MOST ORDERED PRODUCTS */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="bg-white rounded-[30px] p-8 shadow-xl border border-gray-100"
+              >
+                <div className="mb-6">
+                  <p className="text-gold text-[10px] font-black tracking-[0.3em] uppercase mb-2">Best Sellers</p>
+                  <h3 className="text-2xl font-serif font-bold">Most Ordered Products</h3>
+                </div>
+                {mostOrderedProducts.length === 0 ? (
+                  <p className="text-gray-400 text-sm">No order data available</p>
+                ) : (
+                  <div className="space-y-4">
+                    {mostOrderedProducts.map((product, idx) => (
+                      <div key={idx} className="flex items-center justify-between pb-3 border-b border-gray-100 last:border-0">
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg font-bold text-gold">{idx + 1}</span>
+                          <span className="text-gray-700 font-medium">{product.name}</span>
+                        </div>
+                        <span className="text-sm font-bold text-gray-900">{product.qty} sold</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
 
             </div>
 
-            {/* QUICK ACTIONS */}
-
-            <div className="bg-black rounded-[35px] p-8 text-white shadow-2xl">
-
-              <p className="text-[#d4af37] text-[10px] uppercase tracking-[0.4em] font-black mb-3">
-
-                Quick Actions
-
-              </p>
-
-              <h2 className="text-3xl font-serif font-bold mb-8">
-
-                Manage Faster
-
-              </h2>
-
-              <div className="space-y-4">
-
-                <button className="w-full bg-white text-black py-4 rounded-full font-black text-[11px] uppercase tracking-[0.2em] hover:bg-[#d4af37] transition-all">
-
-                  Add Product
-
-                </button>
-
-                <button className="w-full border border-white py-4 rounded-full font-black text-[11px] uppercase tracking-[0.2em] hover:bg-white hover:text-black transition-all">
-
-                  View Orders
-
-                </button>
-
+            {/* SYSTEM STATISTICS */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="bg-white rounded-[30px] p-8 shadow-xl border border-gray-100 mb-14"
+            >
+              <div className="mb-6">
+                <p className="text-gold text-[10px] font-black tracking-[0.3em] uppercase mb-2">Overview</p>
+                <h3 className="text-2xl font-serif font-bold">System Statistics</h3>
               </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl border border-blue-200">
+                  <p className="text-blue-600 text-sm font-semibold mb-2">Total Orders</p>
+                  <p className="text-3xl font-bold text-blue-900">{orders.length}</p>
+                </div>
+                <div className="p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-2xl border border-green-200">
+                  <p className="text-green-600 text-sm font-semibold mb-2">Completed</p>
+                  <p className="text-3xl font-bold text-green-900">{systemStats.completed}</p>
+                </div>
+                <div className="p-6 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-2xl border border-yellow-200">
+                  <p className="text-yellow-600 text-sm font-semibold mb-2">Pending</p>
+                  <p className="text-3xl font-bold text-yellow-900">{systemStats.pending}</p>
+                </div>
+                <div className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl border border-purple-200">
+                  <p className="text-purple-600 text-sm font-semibold mb-2">Products</p>
+                  <p className="text-3xl font-bold text-purple-900">{products.length}</p>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
       </div>
-
     </div>
-
   );
-
 }

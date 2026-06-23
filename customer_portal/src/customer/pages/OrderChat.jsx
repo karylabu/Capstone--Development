@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { X, Send } from "lucide-react";
+import { CUSTOMER_BASE } from "../../services/config";
 
-const BASE = "http://localhost/GitHub/Capstone--Development/customer";
+const BASE = CUSTOMER_BASE;
 
 export default function OrderChat({ order, onClose }) {
   const [messages, setMessages] = useState([]);

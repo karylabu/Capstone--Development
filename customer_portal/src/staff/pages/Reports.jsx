@@ -1,0 +1,613 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
+import {
+  TrendingUp, TrendingDown, ShoppingBag, CheckCircle,
+  Clock, Package, BarChart2, Calendar, Award, AlertTriangle
+} from 'lucide-react';
+import StaffNavbar from '../components/StaffNavbar';
+
+const STAFF_BASE    = "http://localhost/Capstone--Development/staff";
+const CUSTOMER_BASE = "http://localhost/Capstone--Development/customer";
+
+/* ─────────────────────────────────────────
+   HELPERS
+───────────────────────────────────────── */
+const GOLD   = '#d4af37';
+const GOLD_L = '#f5e199';
+
+function fmt(n)  { return Number(n || 0).toLocaleString(); }
+function peso(n) { return `₱${fmt(n)}`; }
+
+/* ─────────────────────────────────────────
+   BANNER
+───────────────────────────────────────── */
+function Banner() {
+  return (
+    <div className="relative w-full h-[340px] bg-[#111] flex items-end overflow-hidden font-['DM_Sans']">
+      {/* bg image */}
+      <div
+        className="absolute inset-0 bg-cover bg-center opacity-30"
+        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1556742031-c6961e8560b0?q=80&w=2000')" }}
+      />
+      {/* gold grain overlay */}
+      <div className="absolute inset-0 opacity-10"
+        style={{ backgroundImage: `radial-gradient(circle at 20% 50%, ${GOLD} 0%, transparent 60%)` }} />
+
+      <div className="relative z-10 px-10 pb-14 max-w-7xl w-full mx-auto">
+        <motion.p
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          className="text-[#d4af37] text-[10px] font-black tracking-[0.45em] uppercase mb-3">
+          Pastry Project · Analytics
+        </motion.p>
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+          className="text-white text-5xl md:text-6xl font-serif font-bold leading-tight">
+          Business <span className="italic text-[#d4af37]">Reports</span>
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+          className="text-gray-400 text-sm mt-4 max-w-lg">
+          Real-time sales data, order trends, inventory health and product performance — all in one place.
+        </motion.p>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   STAT CARD
+───────────────────────────────────────── */
+function StatCard({ title, value, sub, icon: Icon, accent, trend, trendLabel }) {
+  return (
+    <motion.div
+      whileHover={{ y: -4 }}
+      className="bg-white rounded-[28px] p-7 shadow-lg border border-gray-100 flex flex-col gap-4"
+    >
+      <div className="flex items-start justify-between">
+        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${accent}`}>
+          <Icon size={20} className="text-white" />
+        </div>
+        {trend !== undefined && (
+          <span className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full
+            ${trend >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
+            {trend >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+            {Math.abs(trend)}% {trendLabel}
+          </span>
+        )}
+      </div>
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.3em] text-gray-400 font-black mb-1">{title}</p>
+        <h2 className="text-4xl font-bold font-serif text-gray-900">{value}</h2>
+        {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+      </div>
+    </motion.div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   BAR CHART (SVG — reliable rendering)
+───────────────────────────────────────── */
+function BarChart({ data, height = 200, valueKey = 'total', labelKey = 'label', color = GOLD, color2 = GOLD_L, valuePrefix = '₱' }) {
+  const W = 800; const H = height; const PAD_T = 16; const PAD_B = 36; const PAD_X = 8;
+  const n = data.length || 1;
+  const barW = (W - PAD_X * 2) / n;
+  const gap  = barW * 0.28;
+  const bw   = barW - gap;
+  const max  = Math.max(...data.map(d => Number(d[valueKey]) || 0), 1);
+  const plotH = H - PAD_T - PAD_B;
+  const gradId = `bg_${color.replace('#','')}`;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} overflow="visible">
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0%" stopColor={color} />
+          <stop offset="100%" stopColor={color2} />
+        </linearGradient>
+      </defs>
+      {data.map((d, i) => {
+        const val   = Number(d[valueKey]) || 0;
+        const barH  = Math.max(6, (val / max) * plotH);
+        const x     = PAD_X + i * barW + gap / 2;
+        const y     = PAD_T + plotH - barH;
+        const label = d[labelKey] || '';
+        return (
+          <g key={i}>
+            <rect
+              x={x} y={y} width={bw} height={barH}
+              rx={6} ry={6}
+              fill={`url(#${gradId})`}
+              opacity={val === 0 ? 0.18 : 1}
+            />
+            {/* zero baseline ghost bar so chart never looks empty */}
+            {val === 0 && (
+              <rect x={x} y={PAD_T + plotH - 6} width={bw} height={6} rx={3} ry={3} fill={color} opacity={0.18} />
+            )}
+            <title>{valuePrefix}{fmt(val)}</title>
+            <text
+              x={x + bw / 2} y={H - 6}
+              textAnchor="middle"
+              fontSize="10"
+              fill="#9ca3af"
+              fontFamily="DM Sans, sans-serif"
+              letterSpacing="0.05em"
+            >
+              {label.length > 6 ? label.slice(0, 5) + '…' : label}
+            </text>
+          </g>
+        );
+      })}
+      {/* baseline */}
+      <line x1={PAD_X} y1={PAD_T + plotH} x2={W - PAD_X} y2={PAD_T + plotH} stroke="#e5e7eb" strokeWidth="1" />
+    </svg>
+  );
+}
+
+/* ─────────────────────────────────────────
+   DONUT CHART (SVG — fixed arc math)
+───────────────────────────────────────── */
+function DonutChart({ segments, size = 180 }) {
+  const total = segments.reduce((s, seg) => s + seg.value, 0) || 1;
+  const cx = size / 2; const cy = size / 2;
+  const R = 62; const stroke = 22;
+  const circumference = 2 * Math.PI * R;
+
+  let cumulative = 0;
+  const arcs = segments.map(seg => {
+    const frac  = seg.value / total;
+    const dash  = frac * circumference;
+    const offset = circumference * (0.25 - cumulative); // start from top
+    cumulative  += frac;
+    return { ...seg, dash, gap: circumference - dash, offset };
+  });
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {/* track */}
+      <circle cx={cx} cy={cy} r={R} fill="none" stroke="#f3f4f6" strokeWidth={stroke} />
+      {arcs.map((arc, i) => (
+        <circle
+          key={i}
+          cx={cx} cy={cy} r={R}
+          fill="none"
+          stroke={arc.color}
+          strokeWidth={stroke}
+          strokeDasharray={`${arc.dash} ${arc.gap}`}
+          strokeDashoffset={arc.offset}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dasharray 0.6s ease' }}
+        />
+      ))}
+      <text x={cx} y={cy - 5} textAnchor="middle" fontSize="20" fontWeight="700" fill="#111">
+        {total}
+      </text>
+      <text x={cx} y={cy + 14} textAnchor="middle" fontSize="9" fill="#9ca3af" letterSpacing="2">
+        TOTAL
+      </text>
+    </svg>
+  );
+}
+
+/* ─────────────────────────────────────────
+   HORIZONTAL BAR (for top products)
+───────────────────────────────────────── */
+function HorizBar({ label, value, displayValue, max, rank, color = GOLD }) {
+  const numericValue = typeof value === 'number' ? value : 0;
+  const pct = max > 0 ? (numericValue / max) * 100 : 0;
+  return (
+    <div className="flex items-center gap-4">
+      <span className="text-[11px] font-bold text-gray-400 w-5 text-right">{rank}</span>
+      <div className="flex-1">
+        <div className="flex justify-between mb-1.5">
+          <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]">{label}</span>
+          <span className="text-sm font-bold text-gray-900">{displayValue ?? value}</span>
+        </div>
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.max(4, pct)}%` }}
+            transition={{ duration: 0.8, delay: rank * 0.08 }}
+            className="h-full rounded-full"
+            style={{ background: `linear-gradient(to right, ${color}, ${GOLD_L})` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   SECTION HEADER
+───────────────────────────────────────── */
+function SectionHeader({ eyebrow, title }) {
+  return (
+    <div className="mb-6">
+      <p className="text-[#d4af37] text-[10px] font-black tracking-[0.4em] uppercase mb-2">{eyebrow}</p>
+      <h2 className="text-3xl font-serif font-bold tracking-tight text-gray-900">{title}</h2>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   MAIN REPORTS PAGE
+───────────────────────────────────────── */
+export default function Reports() {
+  const [orders,   setOrders]   = useState([]);
+  const [products, setProducts] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [range,    setRange]    = useState('7');  // '7' | '30' | 'all'
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${STAFF_BASE}/api_orders.php`).then(r => r.json()).catch(() => []),
+      fetch(`${CUSTOMER_BASE}/api_products.php?action=list`).then(r => r.json()).catch(() => []),
+    ]).then(([ord, prod]) => {
+      const parsed = Array.isArray(ord)
+        ? ord.map(o => ({
+            ...o,
+            items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items || [],
+          }))
+        : [];
+      setOrders(parsed);
+      setProducts(Array.isArray(prod) ? prod : []);
+      setLoading(false);
+    });
+  }, []);
+
+  /* ── date filter ── */
+  const filtered = useMemo(() => {
+    if (range === 'all') return orders;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - Number(range));
+    return orders.filter(o => o.created_at && new Date(o.created_at) >= cutoff);
+  }, [orders, range]);
+
+  /* ── KPIs ── */
+  const totalRevenue  = useMemo(() => filtered.reduce((s, o) => s + Number(o.total || 0), 0), [filtered]);
+  const completedOrds = useMemo(() => filtered.filter(o => o.status === 'Completed'), [filtered]);
+  const pendingOrds   = useMemo(() => filtered.filter(o => o.status === 'Pending'),   [filtered]);
+  const avgOrderValue = useMemo(() => completedOrds.length ? totalRevenue / completedOrds.length : 0, [totalRevenue, completedOrds]);
+
+  /* ── daily sales (last N days) ── */
+  const salesByDay = useMemo(() => {
+    const days = Number(range) || 7;
+    const today = new Date();
+    return Array.from({ length: Math.min(days, 30) }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() - (Math.min(days, 30) - 1 - i));
+      const key   = d.toISOString().slice(0, 10);
+      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const total = filtered
+        .filter(o => o.created_at?.slice(0, 10) === key)
+        .reduce((s, o) => s + Number(o.total || 0), 0);
+      return { label, dateKey: key, total };
+    });
+  }, [filtered, range]);
+
+  /* ── order status breakdown ── */
+  const statusBreakdown = useMemo(() => {
+    const counts = { Pending: 0, Preparing: 0, 'To Receive': 0, Completed: 0 };
+    filtered.forEach(o => { if (counts[o.status] !== undefined) counts[o.status]++; });
+    return [
+      { label: 'Pending',    value: counts.Pending,      color: '#fbbf24' },
+      { label: 'Preparing',  value: counts.Preparing,    color: '#38bdf8' },
+      { label: 'To Receive', value: counts['To Receive'], color: '#a78bfa' },
+      { label: 'Completed',  value: counts.Completed,    color: '#34d399' },
+    ];
+  }, [filtered]);
+
+  /* ── top products by qty ── */
+  const topProducts = useMemo(() => {
+    const tally = {};
+    filtered.forEach(o => {
+      o.items.forEach(item => {
+        const name = item.name || 'Unknown';
+        tally[name] = (tally[name] || 0) + Number(item.qty || 0);
+      });
+    });
+    return Object.entries(tally)
+      .map(([name, qty]) => ({ name, qty }))
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 8);
+  }, [filtered]);
+
+  /* ── top products by revenue ── */
+  const topByRevenue = useMemo(() => {
+    const tally = {};
+    filtered.forEach(o => {
+      o.items.forEach(item => {
+        const name = item.name || 'Unknown';
+        tally[name] = (tally[name] || 0) + Number(item.price || 0) * Number(item.qty || 0);
+      });
+    });
+    return Object.entries(tally)
+      .map(([name, revenue]) => ({ name, revenue }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 8);
+  }, [filtered]);
+
+  /* ── orders by weekday ── */
+  const byWeekday = useMemo(() => {
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const counts = Array(7).fill(0);
+    filtered.forEach(o => {
+      if (o.created_at) counts[new Date(o.created_at).getDay()]++;
+    });
+    return days.map((label, i) => ({ label, total: counts[i] }));
+  }, [filtered]);
+
+  /* ── inventory stats ── */
+  const lowStock  = useMemo(() => products.filter(p => Number(p.stock) > 0 && Number(p.stock) <= 5), [products]);
+  const outStock  = useMemo(() => products.filter(p => Number(p.stock) === 0), [products]);
+  const totalStock = useMemo(() => products.reduce((s, p) => s + Number(p.stock || 0), 0), [products]);
+
+  /* ── completion rate ── */
+  const completionRate = filtered.length
+    ? Math.round((completedOrds.length / filtered.length) * 100)
+    : 0;
+
+  const maxQty     = topProducts[0]?.qty || 1;
+  const maxRevenue = topByRevenue[0]?.revenue || 1;
+
+  /* ─────────────────────────────────────────
+     RENDER
+  ───────────────────────────────────────── */
+  return (
+    <div className="bg-[#fafafa] min-h-screen font-['DM_Sans']">
+      <StaffNavbar />
+      <Banner />
+
+      <div className="max-w-7xl mx-auto px-6 xl:px-10 py-14">
+
+        {/* DATE RANGE FILTER */}
+        <div className="flex items-center gap-3 mb-10">
+          <span className="text-[10px] uppercase tracking-[0.3em] text-gray-400 font-black">Period:</span>
+          {[['7', 'Last 7 days'], ['30', 'Last 30 days'], ['all', 'All time']].map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => setRange(val)}
+              className={`px-5 py-2 rounded-full text-xs font-semibold transition-all ${
+                range === val
+                  ? 'bg-black text-white shadow-lg'
+                  : 'bg-white border border-gray-200 text-gray-500 hover:border-black hover:text-black'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-64 text-gray-400">
+            <div className="text-center">
+              <BarChart2 size={40} className="mx-auto mb-4 opacity-30 animate-pulse" />
+              <p className="text-sm">Loading analytics…</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* ── KPI STATS ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-14">
+              <StatCard
+                title="Total Revenue"
+                value={peso(totalRevenue)}
+                sub={`from ${filtered.length} orders`}
+                icon={TrendingUp}
+                accent="bg-gradient-to-br from-[#d4af37] to-[#b09c4a]"
+              />
+              <StatCard
+                title="Completed Orders"
+                value={completedOrds.length}
+                sub={`${completionRate}% completion rate`}
+                icon={CheckCircle}
+                accent="bg-gradient-to-br from-emerald-400 to-emerald-600"
+              />
+              <StatCard
+                title="Avg. Order Value"
+                value={peso(Math.round(avgOrderValue))}
+                sub="per completed order"
+                icon={ShoppingBag}
+                accent="bg-gradient-to-br from-sky-400 to-sky-600"
+              />
+              <StatCard
+                title="Pending Orders"
+                value={pendingOrds.length}
+                sub="awaiting action"
+                icon={Clock}
+                accent="bg-gradient-to-br from-orange-400 to-orange-600"
+              />
+            </div>
+
+            {/* ── SALES TREND + ORDER STATUS ── */}
+            <div className="grid gap-8 xl:grid-cols-[1fr_380px] mb-14">
+
+              {/* Sales trend chart */}
+              <div className="bg-white rounded-[30px] border border-gray-100 shadow-xl p-8">
+                <div className="flex items-start justify-between mb-8">
+                  <div>
+                    <p className="text-[#d4af37] text-[10px] font-black tracking-[0.4em] uppercase mb-2">Revenue</p>
+                    <h3 className="text-2xl font-serif font-bold">Daily Sales Trend</h3>
+                    <p className="text-xs text-gray-400 mt-1">{range === 'all' ? 'All time' : `Last ${range} days`}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider">Total</p>
+                    <p className="text-xl font-bold text-[#d4af37]">{peso(totalRevenue)}</p>
+                  </div>
+                </div>
+                <BarChart data={salesByDay} height={200} />
+              </div>
+
+              {/* Order status donut */}
+              <div className="bg-white rounded-[30px] border border-gray-100 shadow-xl p-8 flex flex-col">
+                <div className="mb-6">
+                  <p className="text-[#d4af37] text-[10px] font-black tracking-[0.4em] uppercase mb-2">Breakdown</p>
+                  <h3 className="text-2xl font-serif font-bold">Order Status</h3>
+                </div>
+                <div className="flex flex-col items-center gap-6 flex-1 justify-center">
+                  <DonutChart segments={statusBreakdown} size={180} />
+                  <div className="grid grid-cols-2 gap-3 w-full">
+                    {statusBreakdown.map(seg => (
+                      <div key={seg.label} className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: seg.color }} />
+                        <div>
+                          <p className="text-[10px] text-gray-400 uppercase tracking-wider">{seg.label}</p>
+                          <p className="text-sm font-bold text-gray-900">{seg.value}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── ORDERS BY WEEKDAY ── */}
+            <div className="bg-white rounded-[30px] border border-gray-100 shadow-xl p-8 mb-14">
+              <SectionHeader eyebrow="Patterns" title="Orders by Day of Week" />
+              <BarChart data={byWeekday} height={160} valueKey="total" labelKey="label" color={GOLD} color2={GOLD_L} valuePrefix="" />
+            </div>
+
+            {/* ── TOP PRODUCTS ── */}
+            <div className="grid gap-8 xl:grid-cols-2 mb-14">
+
+              {/* By quantity */}
+              <div className="bg-white rounded-[30px] border border-gray-100 shadow-xl p-8">
+                <SectionHeader eyebrow="Best Sellers" title="Top Products by Units" />
+                {topProducts.length === 0 ? (
+                  <p className="text-sm text-gray-400">No data available.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {topProducts.map((p, i) => (
+                      <HorizBar key={p.name} rank={i + 1} label={p.name} value={p.qty} max={maxQty} color={GOLD} />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* By revenue */}
+              <div className="bg-white rounded-[30px] border border-gray-100 shadow-xl p-8">
+                <SectionHeader eyebrow="Revenue Leaders" title="Top Products by Sales" />
+                {topByRevenue.length === 0 ? (
+                  <p className="text-sm text-gray-400">No data available.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {topByRevenue.map((p, i) => (
+                      <HorizBar key={p.name} rank={i + 1} label={p.name} value={p.revenue} displayValue={`₱${fmt(Math.round(p.revenue))}`} max={maxRevenue} color="#10b981" />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── INVENTORY HEALTH ── */}
+            <div className="mb-14">
+              <SectionHeader eyebrow="Stock" title="Inventory Health" />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
+                <div className="bg-white rounded-[24px] border border-gray-100 shadow-lg p-6 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center">
+                    <Package size={20} className="text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-gray-400">Total Stock</p>
+                    <p className="text-3xl font-bold font-serif">{fmt(totalStock)}</p>
+                  </div>
+                </div>
+                <div className="bg-white rounded-[24px] border border-yellow-100 shadow-lg p-6 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-yellow-50 flex items-center justify-center">
+                    <AlertTriangle size={20} className="text-yellow-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-gray-400">Low Stock Items</p>
+                    <p className="text-3xl font-bold font-serif text-yellow-600">{lowStock.length}</p>
+                  </div>
+                </div>
+                <div className="bg-white rounded-[24px] border border-red-100 shadow-lg p-6 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center">
+                    <AlertTriangle size={20} className="text-red-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-gray-400">Out of Stock</p>
+                    <p className="text-3xl font-bold font-serif text-red-500">{outStock.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Low + out of stock tables side by side */}
+              <div className="grid gap-6 xl:grid-cols-2">
+                <div className="bg-white rounded-[28px] border border-gray-100 shadow-lg p-6">
+                  <h3 className="text-sm uppercase tracking-[0.3em] text-gray-400 font-black mb-4">⚠ Low Stock (≤5)</h3>
+                  {lowStock.length === 0 ? (
+                    <p className="text-sm text-gray-400">All items well stocked.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {lowStock.map(p => (
+                        <li key={p.id} className="flex items-center justify-between rounded-2xl bg-yellow-50 border border-yellow-100 px-4 py-3">
+                          <span className="text-sm text-gray-700">{p.name}</span>
+                          <span className="text-sm font-bold text-yellow-700">{p.stock} left</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div className="bg-white rounded-[28px] border border-gray-100 shadow-lg p-6">
+                  <h3 className="text-sm uppercase tracking-[0.3em] text-gray-400 font-black mb-4">✕ Out of Stock</h3>
+                  {outStock.length === 0 ? (
+                    <p className="text-sm text-gray-400">No out-of-stock items.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {outStock.map(p => (
+                        <li key={p.id} className="flex items-center justify-between rounded-2xl bg-red-50 border border-red-100 px-4 py-3">
+                          <span className="text-sm text-gray-700">{p.name}</span>
+                          <span className="text-sm font-bold text-red-500">Out</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* ── RECENT COMPLETED ORDERS TABLE ── */}
+            <div className="mb-14">
+              <SectionHeader eyebrow="History" title="Recent Completed Orders" />
+              <div className="bg-white rounded-[30px] border border-gray-100 shadow-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100">
+                        <th className="text-left text-[10px] uppercase tracking-[0.3em] text-gray-400 px-6 py-4 font-black">Order</th>
+                        <th className="text-left text-[10px] uppercase tracking-[0.3em] text-gray-400 px-6 py-4 font-black">Customer</th>
+                        <th className="text-left text-[10px] uppercase tracking-[0.3em] text-gray-400 px-6 py-4 font-black">Items</th>
+                        <th className="text-left text-[10px] uppercase tracking-[0.3em] text-gray-400 px-6 py-4 font-black">Date</th>
+                        <th className="text-right text-[10px] uppercase tracking-[0.3em] text-gray-400 px-6 py-4 font-black">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {completedOrds.slice(0, 10).length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="text-center py-10 text-gray-400">No completed orders in this period.</td>
+                        </tr>
+                      ) : (
+                        completedOrds.slice(0, 10).map((o, i) => (
+                          <tr key={o.id} className={`border-b border-gray-50 hover:bg-[#fdf8ec] transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
+                            <td className="px-6 py-4 font-bold text-gray-900">#{o.id}</td>
+                            <td className="px-6 py-4 text-gray-600">{o.customer || '—'}</td>
+                            <td className="px-6 py-4 text-gray-500">{o.items.length} item{o.items.length !== 1 ? 's' : ''}</td>
+                            <td className="px-6 py-4 text-gray-400 text-xs">
+                              {o.created_at ? new Date(o.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                            </td>
+                            <td className="px-6 py-4 text-right font-semibold text-[#d4af37]">{peso(o.total)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

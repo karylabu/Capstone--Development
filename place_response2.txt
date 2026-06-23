@@ -1,0 +1,18 @@
+HTTP/1.1 200 OK
+Date: Mon, 01 Jun 2026 07:30:33 GMT
+Server: Apache/2.4.58 (Win64) OpenSSL/3.1.3 PHP/8.2.12
+X-Powered-By: PHP/8.2.12
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Cache-Control: no-store, no-cache, must-revalidate
+Pragma: no-cache
+Content-Length: 638
+Content-Type: text/html; charset=UTF-8
+
+<br />
+<b>Fatal error</b>:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'customer' in 'field list' in C:\xampp\htdocs\Capstone--Development\laravel\legacy_compat.php:78
+Stack trace:
+#0 C:\xampp\htdocs\Capstone--Development\laravel\legacy_compat.php(78): PDO-&gt;prepare('INSERT INTO ord...')
+#1 C:\xampp\htdocs\Capstone--Development\includes\data.php(193): db_run('INSERT INTO ord...', Array)
+#2 C:\xampp\htdocs\Capstone--Development\customer\place_order.php(188): db_place_order(Array)
+#3 {main}
+  thrown in <b>C:\xampp\htdocs\Capstone--Development\laravel\legacy_compat.php</b> on line <b>78</b><br />

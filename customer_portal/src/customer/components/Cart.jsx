@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Trash2, ShoppingBag } from 'lucide-react';
+import { X, Trash2, ShoppingBag, Plus, Minus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Cart({
@@ -10,13 +10,64 @@ export default function Cart({
   totalAmount = 0,
   setIsCheckout
 }) {
-
-  // Ensure cart is always an array
   const safeCartItems = Array.isArray(cartItems) ? cartItems : [];
   const safeTotalAmount = Number(totalAmount) || 0;
 
   const deliveryFee = safeCartItems.length > 0 ? 45 : 0;
   const grandTotal = safeTotalAmount + deliveryFee;
+
+  // Increase quantity: duplicate the item in the flat array
+  const handleIncrease = (index) => {
+    const item = safeCartItems[index];
+    const updated = [...safeCartItems];
+    updated.splice(index + 1, 0, { ...item });
+    setCartItems(updated);
+  };
+
+  // Decrease quantity: remove one instance; if qty = 1 remove entirely
+  const handleDecrease = (index) => {
+    const updated = [...safeCartItems];
+    updated.splice(index, 1);
+    setCartItems(updated);
+  };
+
+  // Remove all instances of a specific item
+  const handleRemove = (index) => {
+    const item = safeCartItems[index];
+    const key = JSON.stringify({
+      name: item.name,
+      variant: item.variant,
+      selectionDetails: item.selectionDetails,
+    });
+    setCartItems(
+      safeCartItems.filter(
+        (i) =>
+          JSON.stringify({
+            name: i.name,
+            variant: i.variant,
+            selectionDetails: i.selectionDetails,
+          }) !== key
+      )
+    );
+  };
+
+  // Group items for display while retaining first-occurrence index for key ops
+  const groupedItems = React.useMemo(() => {
+    const map = new Map();
+    safeCartItems.forEach((item, idx) => {
+      const key = JSON.stringify({
+        name: item.name,
+        variant: item.variant,
+        selectionDetails: item.selectionDetails,
+      });
+      if (!map.has(key)) {
+        map.set(key, { item, qty: 1, firstIndex: idx });
+      } else {
+        map.get(key).qty += 1;
+      }
+    });
+    return Array.from(map.values());
+  }, [safeCartItems]);
 
   return (
     <AnimatePresence>
@@ -33,7 +84,6 @@ export default function Cart({
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-[500px] h-screen bg-white shadow-2xl flex flex-col relative font-['DM_Sans']"
           >
-
             {/* HEADER */}
             <div className="px-10 pt-12 pb-8 border-b border-gray-50 flex items-center justify-between flex-shrink-0">
               <div>
@@ -52,23 +102,28 @@ export default function Cart({
 
             {/* BODY */}
             <div className="flex-1 overflow-y-auto px-8 py-8 space-y-5 no-scrollbar">
-              {safeCartItems.length === 0 ? (
+              {groupedItems.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center space-y-4 opacity-20">
                   <ShoppingBag size={60} strokeWidth={1} />
                   <p className="text-[10px] uppercase tracking-[0.3em] font-black">Your cart is empty</p>
                 </div>
               ) : (
-                safeCartItems.map((item, index) => {
+                groupedItems.map(({ item, qty, firstIndex }) => {
                   const itemPrice = Number(item?.price) || 0;
 
                   return (
-                    <div
-                      key={item.id || index}
-                      className="border border-gray-100 rounded-[35px] p-6 flex items-center justify-between bg-white"
+                    <motion.div
+                      key={`${item.name}-${item.variant}-${firstIndex}`}
+                      layout
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: 40 }}
+                      transition={{ duration: 0.2 }}
+                      className="border border-gray-100 rounded-[35px] p-6 bg-white"
                     >
-                      {/* LEFT */}
-                      <div className="flex items-center gap-5">
-                        <div className="w-20 h-20 rounded-2xl bg-gray-50 overflow-hidden flex items-center justify-center p-2">
+                      <div className="flex items-start justify-between gap-4">
+                        {/* Image */}
+                        <div className="w-20 h-20 rounded-2xl bg-gray-50 overflow-hidden flex items-center justify-center p-2 flex-shrink-0">
                           <img
                             src={`http://localhost/pastry_system/uploads/${item?.image || ''}`}
                             alt={item?.name || 'Product'}
@@ -77,59 +132,79 @@ export default function Cart({
                           />
                         </div>
 
-                        <div className="text-left">
-                          <h3 className="text-[15px] font-bold leading-tight text-gray-800">
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-[15px] font-bold leading-tight text-gray-800 truncate">
                             {item?.name || 'Product'}
                           </h3>
-
                           <p className="text-[9px] uppercase tracking-[0.25em] font-black text-gray-400 mt-1">
                             {item?.variant || 'Standard'}
                           </p>
 
-                          {/* CUSTOM DETAILS */}
+                          {/* Tags */}
                           <div className="flex flex-wrap gap-2 mt-3">
                             {item?.selectionDetails?.drink && (
                               <span className="px-3 py-1 rounded-full bg-blue-50 text-[8px] font-black uppercase text-blue-500">
                                 {item.selectionDetails.drink}
                               </span>
                             )}
-
                             {item?.selectionDetails?.cake && (
                               <span className="px-3 py-1 rounded-full bg-yellow-50 text-[8px] font-black uppercase text-[#d4af37]">
                                 {item.selectionDetails.cake}
                               </span>
                             )}
-
                             {item?.selectionDetails?.extras?.map((extra, i) => (
-                              <span
-                                key={i}
-                                className="px-3 py-1 rounded-full bg-green-50 text-[8px] font-black uppercase text-green-600"
-                              >
+                              <span key={i} className="px-3 py-1 rounded-full bg-green-50 text-[8px] font-black uppercase text-green-600">
                                 {extra.name}
                               </span>
                             ))}
                           </div>
                         </div>
+
+                        {/* Price + Remove */}
+                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          <p className="text-xl font-black tracking-tight text-gray-900">
+                            ₱{(itemPrice * qty).toLocaleString()}
+                          </p>
+                          <button
+                            onClick={() => handleRemove(firstIndex)}
+                            className="text-gray-300 hover:text-red-500 transition-all p-1"
+                            title="Remove all"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
 
-                      {/* RIGHT */}
-                      <div className="flex flex-col items-end gap-5">
-                        <p className="text-2xl font-black tracking-tight text-gray-900">
-                          ₱{itemPrice.toLocaleString()}
-                        </p>
-
-                        <button
-                          onClick={() =>
-                            setCartItems(
-                              safeCartItems.filter((_, i) => i !== index)
-                            )
-                          }
-                          className="text-gray-300 hover:text-red-500 transition-all p-1"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                      {/* Quantity Controls */}
+                      <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-50">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                          ₱{itemPrice.toLocaleString()} each
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => handleDecrease(firstIndex)}
+                            className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-all active:scale-90"
+                          >
+                            <Minus size={13} strokeWidth={2.5} />
+                          </button>
+                          <motion.span
+                            key={qty}
+                            initial={{ scale: 1.3, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="w-6 text-center text-[15px] font-black text-gray-800"
+                          >
+                            {qty}
+                          </motion.span>
+                          <button
+                            onClick={() => handleIncrease(firstIndex)}
+                            className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-black hover:border-black hover:text-white transition-all active:scale-90"
+                          >
+                            <Plus size={13} strokeWidth={2.5} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })
               )}
@@ -152,7 +227,6 @@ export default function Cart({
                 </div>
               </div>
 
-              {/* TOTAL */}
               <div className="flex items-end justify-between mb-10">
                 <h2 className="text-4xl font-serif font-bold text-[#d4af37] italic">Total</h2>
                 <p className="text-5xl font-black tracking-tighter text-gray-900 leading-none">
@@ -160,7 +234,6 @@ export default function Cart({
                 </p>
               </div>
 
-              {/* CHECKOUT BUTTON */}
               <button
                 onClick={() => {
                   onClose();
@@ -172,7 +245,6 @@ export default function Cart({
                 Checkout Order
               </button>
             </div>
-
           </motion.div>
         </div>
       )}

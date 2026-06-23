@@ -7,13 +7,23 @@ if (!isset($_SESSION['user'])) {
     exit;
 }
 
-$selectedKeys = $_POST['selected_items'] ?? $_SESSION['selected_items'] ?? [];
+$selectedKeys = $_POST['selected_items'] ?? $_GET['selected_items'] ?? $_SESSION['selected_items'] ?? [];
 
-if (empty($selectedKeys)) {
-    header("Location: cart.php");
-    exit;
+// Normalize selected keys to an array (accept comma-separated string too)
+if (!is_array($selectedKeys)) {
+  if (is_string($selectedKeys) && trim($selectedKeys) !== '') {
+    $selectedKeys = array_values(array_filter(array_map('trim', explode(',', $selectedKeys))));
+  } else {
+    $selectedKeys = [];
+  }
 }
 
+if (empty($selectedKeys)) {
+  header("Location: cart.php");
+  exit;
+}
+
+// persist selection in session
 $_SESSION['selected_items'] = $selectedKeys;
 
 $cartItems = get_cart_items();
@@ -220,7 +230,7 @@ body{
 
 <h1 class="page-title">Checkout</h1>
 
-<form method="POST" action="place_order.php">
+<form method="POST" action="customer/place_order.php">
 
 <div class="checkout-grid">
 

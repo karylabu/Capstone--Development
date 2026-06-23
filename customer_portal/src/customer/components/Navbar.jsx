@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { BASE, CUSTOMER_BASE } from '../../services/config';
 
 export default function Navbar({ cartCount = 0, onCartClick }) {
 
@@ -33,13 +34,13 @@ export default function Navbar({ cartCount = 0, onCartClick }) {
   const notifRef = useRef(null);
   const accountRef = useRef(null);
 
-  const BASE = "http://localhost/pastry_system";
+  // use imported BASE and CUSTOMER_BASE from config
 
   /* =========================
      FETCH PRODUCTS
   ========================= */
   useEffect(() => {
-    fetch(`${BASE}/customer/api_products.php`)
+    fetch(`${CUSTOMER_BASE}/api_products.php`)
       .then(res => res.json())
       .then(data => setProducts(Array.isArray(data) ? data : []))
       .catch(() => setProducts([]));
@@ -49,7 +50,7 @@ export default function Navbar({ cartCount = 0, onCartClick }) {
      FETCH ORDERS (NOTIFS)
   ========================= */
   useEffect(() => {
-    fetch(`${BASE}/customer/api_get_orders.php`)
+    fetch(`${CUSTOMER_BASE}/api_get_orders.php`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -234,8 +235,8 @@ export default function Navbar({ cartCount = 0, onCartClick }) {
               <div className="absolute right-0 top-[65px] w-[220px] bg-white border rounded-xl shadow-xl p-2">
 
                 <button
-                  onClick={() => {
-                    navigate("/pastry_system/customer/orders");
+                    onClick={() => {
+                    navigate("/customer/orders");
                     setOpenAccount(false);
                   }}
                   className="w-full text-left p-2 hover:bg-gray-100 rounded"
@@ -245,7 +246,7 @@ export default function Navbar({ cartCount = 0, onCartClick }) {
 
                 <button
                   onClick={() => {
-                    navigate("/pastry_system/customer/menu");
+                    navigate("/customer/menu");
                     setOpenAccount(false);
                   }}
                   className="w-full text-left p-2 hover:bg-gray-100 rounded"
@@ -253,14 +254,15 @@ export default function Navbar({ cartCount = 0, onCartClick }) {
                   Menu
                 </button>
 
-                <button
-                  onClick={() => {
-                    window.location.href = "http://localhost/pastry_system/login.php";
-                  }}
-                  className="w-full text-left p-2 text-red-500 hover:bg-red-50 rounded"
-                >
-                  Logout
-                </button>
+                              <button
+                                onClick={() => {
+                                  navigate('/customer/login');
+                                  setOpenAccount(false);
+                                }}
+                                className="w-full text-left p-2 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                Logout
+                              </button>
 
               </div>
             )}

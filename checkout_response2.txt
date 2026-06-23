@@ -1,0 +1,487 @@
+HTTP/1.1 200 OK
+Date: Mon, 01 Jun 2026 07:30:33 GMT
+Server: Apache/2.4.58 (Win64) OpenSSL/3.1.3 PHP/8.2.12
+X-Powered-By: PHP/8.2.12
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Cache-Control: no-store, no-cache, must-revalidate
+Pragma: no-cache
+Content-Length: 7755
+Content-Type: text/html; charset=UTF-8
+
+
+
+<style>
+
+.top-nav{
+    width:100%;
+    background:#fff;
+    color:#111;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:14px 30px;
+    box-sizing:border-box;
+    position:sticky;
+    top:0;
+    z-index:999;
+}
+
+.left-nav{
+    display:flex;
+    align-items:center;
+    gap:35px;
+}
+
+.brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.logo{
+    width:45px;
+    height:45px;
+    object-fit:cover;
+    border-radius:50%;
+}
+
+.brand-name{
+    font-size:22px;
+    font-weight:700;
+    color:#fff;
+    font-family:'Playfair Display', serif;
+}
+
+.brand-name span{
+    color:#d4a373;
+}
+
+.nav-links{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.nav-links a{
+    text-decoration:none;
+    color:#ddd;
+    padding:10px 16px;
+    border-radius:10px;
+    font-size:13px;
+    font-weight:700;
+    transition:0.2s;
+    letter-spacing:0.5px;
+}
+
+.nav-links a:hover{
+    background:#222;
+    color:#fff;
+}
+
+.nav-links a.active{
+    background:#d4a373;
+    color:#111;
+}
+
+.nav-right{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.search-box input{
+    padding:10px 14px;
+    border:none;
+    border-radius:30px;
+    width:220px;
+    outline:none;
+    font-size:13px;
+}
+
+.account-btn{
+    text-decoration:none;
+    color:#fff;
+    background:#222;
+    padding:10px 14px;
+    border-radius:10px;
+    font-size:13px;
+    font-weight:600;
+    transition:0.2s;
+}
+
+.account-btn:hover{
+    background:#333;
+}
+
+.logout-btn{
+    background:#8b0000;
+}
+
+.logout-btn:hover{
+    background:#a30000;
+}
+
+@media(max-width:1100px){
+
+    .top-nav{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:15px;
+    }
+
+    .left-nav{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:15px;
+    }
+
+    .nav-links{
+        flex-wrap:wrap;
+    }
+
+    .nav-right{
+        width:100%;
+        flex-wrap:wrap;
+    }
+
+    .search-box input{
+        width:100%;
+    }
+}
+
+</style>
+
+<!-- HEADER -->
+<div class="top-nav">
+
+    <div class="left-nav">
+
+        <div class="brand">
+            <img src="../logo.jpg" class="logo">
+
+            <div class="brand-name">
+                Pastry <span>Project</span>
+            </div>
+        </div>
+
+        <div class="nav-links">
+
+            <a href="dashboard.php"
+               class="">
+               DASHBOARD
+            </a>
+
+            <a href="orders.php"
+               class="">
+               ORDERS
+            </a>
+
+            <a href="products.php"
+               class="">
+               PRODUCTS
+            </a>
+
+            <a href="inventory.php"
+               class="">
+               INVENTORY
+            </a>
+
+        </div>
+
+    </div>
+
+    <div class="nav-right">
+
+        <div class="search-box">
+            <input type="text"
+                   id="searchInput"
+                   placeholder="Search...">
+        </div>
+
+        <a href="#" class="account-btn">
+            👤 Customer        </a>
+
+        <a href="logout.php" class="account-btn logout-btn">
+            🚪 Logout
+        </a>
+
+    </div>
+
+</div>
+<style>
+body{
+  background:#f6f6f6;
+}
+
+/* CONTAINER */
+.checkout-container{
+  max-width:1150px;
+  margin:30px auto;
+  padding:0 20px;
+}
+
+/* TITLE */
+.page-title{
+  font-family:'Playfair Display', serif;
+  font-size:30px;
+  margin-bottom:25px;
+}
+
+/* GRID */
+.checkout-grid{
+  display:grid;
+  grid-template-columns:2fr 1fr;
+  gap:28px;
+}
+
+/* CARD */
+.card{
+  background:#fff;
+  border-radius:16px;
+  padding:32px; /* ✅ FIXED spacing */
+  box-shadow:0 6px 18px rgba(0,0,0,0.06);
+}
+
+/* TITLE */
+.card-title{
+  font-size:18px;
+  font-weight:600;
+  margin-bottom:20px;
+}
+
+/* FORM */
+.shipping-form{
+  display:grid;
+  gap:20px;
+  padding:8px; /* ✅ prevents overlap */
+}
+
+/* FORM ROW */
+.form-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px;
+}
+
+/* LABEL */
+.shipping-form label{
+  font-size:13px;
+  font-weight:600;
+  margin-bottom:6px;
+  display:block;
+}
+
+/* INPUTS */
+.shipping-form input,
+.shipping-form textarea,
+.shipping-form select{
+  width:100%;
+  padding:14px 16px;
+  border-radius:12px;
+  border:1.5px solid #e3e3e3;
+  background:#fafafa;
+  font-size:14px;
+  box-sizing:border-box; /* ✅ prevents overflow */
+}
+
+/* TEXTAREA */
+.shipping-form textarea{
+  min-height:120px;
+}
+
+/* FOCUS */
+.shipping-form input:focus,
+.shipping-form textarea:focus,
+.shipping-form select:focus{
+  border-color:#111;
+  background:#fff;
+  box-shadow:0 0 0 2px rgba(0,0,0,0.05);
+}
+
+/* SUMMARY LIST */
+.summary-list{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  margin-bottom:20px;
+}
+
+/* ITEM */
+.summary-item{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+
+/* IMAGE */
+.summary-img{
+  width:55px;
+  height:55px;
+  border-radius:10px;
+  object-fit:cover;
+  border:1px solid #eee;
+}
+
+/* TEXT */
+.summary-name{
+  font-weight:600;
+  font-size:14px;
+}
+
+.summary-meta{
+  font-size:12px;
+  color:#777;
+}
+
+.summary-price{
+  font-weight:600;
+  font-size:14px;
+}
+
+/* TOTAL */
+.summary-totals{
+  border-top:1px solid #eee;
+  padding-top:15px;
+  margin-top:10px;
+}
+
+.total-row{
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:8px;
+  font-size:14px;
+}
+
+.total-final{
+  font-size:18px;
+  font-weight:700;
+  margin-top:10px;
+}
+
+/* BUTTON */
+.checkout-btn{
+  margin-top:18px;
+  width:100%;
+  padding:14px;
+  background:#111;
+  color:#fff;
+  border:none;
+  border-radius:10px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.checkout-btn:hover{
+  background:#333;
+}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .checkout-grid{
+    grid-template-columns:1fr;
+  }
+}
+</style>
+
+<div class="checkout-container">
+
+<h1 class="page-title">Checkout</h1>
+
+<form method="POST" action="customer/place_order.php">
+
+<div class="checkout-grid">
+
+<!-- LEFT -->
+<div class="card">
+
+<h3 class="card-title">Shipping Details</h3>
+
+<div class="shipping-form">
+
+<div class="form-row">
+  <div>
+    <label>Name</label>
+    <input type="text" value="Customer" readonly>
+  </div>
+
+  <div>
+    <label>Email</label>
+    <input type="text" value="customer@pastry.com" readonly>
+  </div>
+</div>
+
+<div>
+  <label>Address</label>
+  <textarea name="address" required></textarea>
+</div>
+
+<div>
+  <label>Payment Method</label>
+  <select name="payment">
+    <option value="COD">Cash on Delivery</option>
+    <option value="GCash">GCash</option>
+    <option value="PayMaya">PayMaya</option>
+  </select>
+</div>
+
+</div>
+</div>
+
+<!-- RIGHT -->
+<div class="card">
+
+<h3 class="card-title">🧾 Order Summary</h3>
+
+<div class="summary-list">
+
+
+<div class="summary-item">
+
+
+  <img src="uploads/cake1.png" class="summary-img">
+
+<div style="flex:1">
+  <div class="summary-name">
+    Chocolate Ganache Cake  </div>
+  <div class="summary-meta">
+    Slice • Qty: 1  </div>
+</div>
+
+<div class="summary-price">
+  ₱100.00</div>
+
+</div>
+
+
+</div>
+
+<div class="summary-totals">
+
+<div class="total-row">
+  <span>Subtotal</span>
+  <span>₱100.00</span>
+</div>
+
+<div class="total-row" style="color:#777">
+  <span>Delivery Fee</span>
+  <span>₱50.00</span>
+</div>
+
+<div class="total-row total-final">
+  <span>Total</span>
+  <span>₱150.00</span>
+</div>
+
+</div>
+
+  <input type="hidden" name="selected_items[]" value="9_slice">
+
+<button type="submit" name="place_order" class="checkout-btn">
+  Place Order
+</button>
+
+</div>
+
+</div>
+</form>
+</div>

@@ -3,8 +3,33 @@
 error_reporting(0);
 ini_set('display_errors', 0);
 
+// CORS: echo origin when allowed and allow credentials only for allowed origins
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.1:3002',
+    'http://localhost',
+    'http://127.0.0.1',
+];
+if ($origin && in_array($origin, $allowedOrigins, true)) {
+    header("Access-Control-Allow-Origin: " . $origin);
+    header('Access-Control-Allow-Credentials: true');
+} else {
+    header('Access-Control-Allow-Origin: *');
+}
+header('Vary: Origin');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 header("Content-Type: application/json");
-header("Access-Control-Allow-Origin: *");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
 
 try {
     // Connect to database
@@ -13,8 +38,22 @@ try {
         throw new Exception("Database Connection Failed: " . mysqli_connect_error());
     }
 
-    // Fetch all orders
-    $sql = "SELECT * FROM orders ORDER BY created_at DESC";
+    // Get user_id from query parameter or POST data (prefer POST for security)
+    $user_id = null;
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $data = json_decode(file_get_contents("php://input"), true);
+        $user_id = intval($data['user_id'] ?? $_GET['user_id'] ?? 0);
+    } elseif (!empty($_GET['user_id'])) {
+        $user_id = intval($_GET['user_id']);
+    }
+
+    // Build SQL: filter by user_id if provided (for customers), otherwise return all (for admin panel)
+    if ($user_id > 0) {
+        $sql = "SELECT * FROM orders WHERE user_id = $user_id ORDER BY created_at DESC";
+    } else {
+        $sql = "SELECT * FROM orders ORDER BY created_at DESC";
+    }
+    
     $res = mysqli_query($conn, $sql);
 
     if (!$res) {
@@ -34,6 +73,9 @@ try {
 
         $orders[] = [
             "id" => $row['id'],
+            "user_id" => intval($row['user_id'] ?? 0),
+            "customer" => $row['customer'] ?? '',
+            "email" => $row['email'] ?? '',
             "items" => $items,
             "subtotal" => floatval($row['subtotal']),
             "delivery_fee" => floatval($row['delivery_fee']),

@@ -1,234 +1,271 @@
 import React, { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import AdminNavbar from "../components/Navbar";
-
-const BASE = "http://localhost/pastry_system";
-const API = `${BASE}/admin/api_orders.php`;
+import AdminNavbar from "../components/AdminNavbar";
+import { CUSTOMER_BASE, STAFF_BASE } from "../../services/config";
 
 export default function Orders() {
 
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [searchId, setSearchId] = useState("");
-  const [sortOption, setSortOption] = useState("Newest");
+  const normalizeOrders = (items, source) =>
+    (Array.isArray(items) ? items : []).map((order) => ({
+      ...order,
+      source,
+      items:
+        typeof order.items === "string" && order.items.length
+          ? JSON.parse(order.items)
+          : order.items || [],
+    }));
 
-  const statusFilterOptions = [
-    "All",
-    "Pending",
-    "Preparing",
-    "Delivered",
-    "Cancelled"
-  ];
-
-  const sortOptions = ["Newest", "Oldest", "Highest total"];
-
-  // =========================
-  // FETCH ORDERS (ADMIN API)
-  // =========================
+  // FETCH ORDERS
   const fetchOrders = () => {
-    setLoading(true);
-
-    fetch(`${API}?action=list`)
-      .then(res => res.json())
-      .then(data => {
-
-        if (Array.isArray(data)) {
-          setOrders(data);
-        } else {
-          setOrders([]);
-        }
-
+    Promise.all([
+      fetch(`${CUSTOMER_BASE}/api_orders.php?action=list`).then((res) => res.json()).catch(() => []),
+      fetch(`${STAFF_BASE}/api_orders.php`).then((res) => res.json()).catch(() => []),
+    ])
+      .then(([customerOrders, staffOrders]) => {
+        const combined = [
+          ...normalizeOrders(customerOrders, "Customer"),
+          ...normalizeOrders(staffOrders, "Staff"),
+        ].sort((a, b) => {
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : Number(a.id);
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : Number(b.id);
+          return dateB - dateA;
+        });
+        setOrders(combined);
       })
-      .catch(() => setOrders([]))
-      .finally(() => setLoading(false));
+      .catch((err) => console.log(err));
   };
 
   useEffect(() => {
+
     fetchOrders();
+
+    const handleOrdersUpdated = () => fetchOrders();
+    window.addEventListener('orderPlaced', handleOrdersUpdated);
+    window.addEventListener('ordersUpdated', handleOrdersUpdated);
+
+    return () => {
+      window.removeEventListener('orderPlaced', handleOrdersUpdated);
+      window.removeEventListener('ordersUpdated', handleOrdersUpdated);
+    };
+
   }, []);
 
-  // =========================
-  // FILTER + SORT
-  // =========================
-  const displayedOrders = orders
-    .filter(order => {
-      const matchesFilter =
-        statusFilter === "All" || order.status === statusFilter;
+  // UPDATE STATUS
+  const updateStatus = async (id, status) => {
+    try {
+      const order = orders.find((o) => o.id === id);
+      const isStaffOrder = order?.source === "Staff";
+      const endpoint = isStaffOrder
+        ? `${STAFF_BASE}/api_update_order_status.php`
+        : `${CUSTOMER_BASE}/api_orders.php?action=update_status`;
 
-      const query = searchId.trim();
-      const matchesSearch =
-        !query || String(order.id).includes(query);
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id,
+          status,
+        }),
+      });
 
-      return matchesFilter && matchesSearch;
-    })
-    .sort((a, b) => {
+      const data = await response.json();
 
-      if (sortOption === "Highest total") {
-        return Number(b.total_price) - Number(a.total_price);
+      if (data.status === "success" || data.success) {
+        setOrders((prev) =>
+          prev.map((order) =>
+            order.id === id ? { ...order, status } : order
+          )
+        );
+        window.dispatchEvent(new Event("ordersUpdated"));
+      } else {
+        alert(data.message || "Failed to update status");
       }
-
-      const dateA = a.created_at
-        ? new Date(a.created_at).getTime()
-        : Number(a.id);
-
-      const dateB = b.created_at
-        ? new Date(b.created_at).getTime()
-        : Number(b.id);
-
-      if (sortOption === "Oldest") return dateA - dateB;
-
-      return dateB - dateA;
-    });
-
-  // =========================
-  // UPDATE STATUS (ADMIN)
-  // =========================
-  const updateStatus = (id, status) => {
-
-    const form = new FormData();
-    form.append("id", id);
-    form.append("status", status);
-
-    fetch(`${API}?action=update_status`, {
-      method: "POST",
-      body: form
-    })
-      .then(res => res.json())
-      .then(() => fetchOrders())
-      .catch(err => console.error("Update error:", err));
-  };
-
-  const getNextStatus = (status) => {
-    const steps = ["Pending", "Preparing", "Delivered", "Cancelled"];
-    const idx = steps.indexOf(status);
-    return idx >= 0 && idx < steps.length - 1 ? steps[idx + 1] : null;
-  };
-
-  const statusColors = {
-    Pending: "bg-yellow-100 text-yellow-700",
-    Preparing: "bg-blue-100 text-blue-700",
-    Delivered: "bg-green-100 text-green-700",
-    Cancelled: "bg-red-100 text-red-700",
+    } catch (err) {
+      console.log(err);
+      alert("Server error");
+    }
   };
 
   return (
-    <div className="bg-[#fafafa] min-h-screen">
+
+    <div className="min-h-screen bg-[#f7f7f7] font-['DM_Sans']">
 
       <AdminNavbar />
 
-      <div className="p-8 xl:p-10 pt-24">
+      <main className="px-6 md:px-10 py-14">
 
-        {/* HEADER */}
-        <div className="mb-10">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-gray-400">
-            Admin Control Panel
-          </p>
+        <div className="max-w-[1400px] mx-auto">
 
-          <h1 className="text-3xl font-bold">
-            Orders Management
-          </h1>
-        </div>
+          {/* HEADER */}
+          <div className="mb-14">
 
-        {/* FILTERS */}
-        <div className="mb-8 flex flex-wrap gap-2">
-          {statusFilterOptions.map(option => (
-            <button
-              key={option}
-              onClick={() => setStatusFilter(option)}
-              className={`px-4 py-2 rounded-full text-sm border ${
-                statusFilter === option
-                  ? "bg-black text-white border-black"
-                  : "bg-white text-gray-700 border-gray-200"
-              }`}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
+            <p className="text-gold text-[10px] font-black tracking-[0.3em] uppercase mb-2">
+              Admin Panel
+            </p>
 
-        {/* SEARCH + SORT */}
-        <div className="mb-6 flex gap-3 flex-wrap">
-
-          <input
-            value={searchId}
-            onChange={(e) => setSearchId(e.target.value)}
-            placeholder="Search Order ID"
-            className="border p-2 rounded"
-          />
-
-          <select
-            value={sortOption}
-            onChange={(e) => setSortOption(e.target.value)}
-            className="border p-2 rounded"
-          >
-            {sortOptions.map(opt => (
-              <option key={opt}>{opt}</option>
-            ))}
-          </select>
-
-        </div>
-
-        {/* CONTENT */}
-        {loading ? (
-          <p>Loading orders...</p>
-        ) : displayedOrders.length === 0 ? (
-          <p>No orders found.</p>
-        ) : (
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-            {displayedOrders.map(order => (
-
-              <motion.div
-                key={order.id}
-                whileHover={{ y: -5 }}
-                className="bg-white p-6 rounded-xl shadow"
-              >
-
-                {/* HEADER */}
-                <div className="flex justify-between mb-4">
-                  <h2 className="font-bold">#{order.id}</h2>
-
-                  <span className={`px-3 py-1 text-xs rounded-full ${statusColors[order.status]}`}>
-                    {order.status}
-                  </span>
-                </div>
-
-                {/* CUSTOMER + PRODUCT */}
-                <div className="text-sm text-gray-600 mb-2">
-                  <div>Customer: {order.customer_name}</div>
-                  <div>Product: {order.product_name}</div>
-                </div>
-
-                {/* TOTAL */}
-                <div className="font-bold mb-3">
-                  ₱{Number(order.total_price).toLocaleString()}
-                </div>
-
-                {/* ACTION */}
-                {getNextStatus(order.status) && (
-                  <button
-                    onClick={() =>
-                      updateStatus(order.id, getNextStatus(order.status))
-                    }
-                    className="w-full bg-black text-white py-2 rounded"
-                  >
-                    Move to {getNextStatus(order.status)}
-                  </button>
-                )}
-
-              </motion.div>
-
-            ))}
+            <h1 className="text-5xl font-black text-gray-900">
+              Orders
+            </h1>
 
           </div>
 
-        )}
+          {/* TABLE */}
+          <div className="overflow-x-auto bg-white rounded-[30px] border border-gray-100 shadow-lg">
 
-      </div>
+            <table className="w-full">
+
+              <thead className="bg-black text-white">
+
+                <tr>
+
+                  <th className="px-6 py-5 text-left text-[11px] uppercase tracking-[0.2em]">
+                    ID
+                  </th>
+
+                  <th className="px-6 py-5 text-left text-[11px] uppercase tracking-[0.2em]">
+                    Customer
+                  </th>
+
+                  <th className="px-6 py-5 text-left text-[11px] uppercase tracking-[0.2em]">
+                    Method
+                  </th>
+
+                  <th className="px-6 py-5 text-left text-[11px] uppercase tracking-[0.2em]">
+                    Total
+                  </th>
+
+                  <th className="px-6 py-5 text-left text-[11px] uppercase tracking-[0.2em]">
+                    Status
+                  </th>
+
+                  <th className="px-6 py-5 text-left text-[11px] uppercase tracking-[0.2em]">
+                    Source
+                  </th>
+
+                  <th className="px-6 py-5 text-left text-[11px] uppercase tracking-[0.2em]">
+                    Date
+                  </th>
+
+                </tr>
+
+              </thead>
+
+              <tbody>
+
+                {orders.length > 0 ? (
+
+                  orders.map((order) => (
+
+                    <tr
+                      key={order.id}
+                      className="border-b border-gray-100 hover:bg-gray-50 transition"
+                    >
+
+                      {/* ID */}
+                      <td className="px-6 py-5 font-bold">
+                        #{order.id}
+                      </td>
+
+                      {/* CUSTOMER */}
+                      <td className="px-6 py-5">
+                        {order.phone || "No Customer"}
+                      </td>
+
+                      {/* METHOD */}
+                      <td className="px-6 py-5">
+
+                        <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase
+                          ${order.method === "Deliver"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-yellow-100 text-yellow-700"}
+                        `}>
+
+                          {order.method}
+
+                        </span>
+
+                      </td>
+
+                      {/* TOTAL */}
+                      <td className="px-6 py-5 font-black">
+                        ₱{Number(order.total).toLocaleString()}
+                      </td>
+
+                      {/* STATUS */}
+                      <td className="px-6 py-5">
+
+                        <select
+                          value={order.status || "Pending"}
+                          onChange={(e) =>
+                            updateStatus(order.id, e.target.value)
+                          }
+                          className="px-4 py-2 rounded-xl border border-gray-200 text-[11px] font-black uppercase outline-none bg-white"
+                        >
+
+                          <option value="Pending">
+                            Pending
+                          </option>
+
+                          <option value="Preparing">
+                            Preparing
+                          </option>
+
+                          <option value="To Receive">
+                            To Receive
+                          </option>
+
+                          <option value="Completed">
+                            Completed
+                          </option>
+
+                        </select>
+
+                      </td>
+
+                      {/* SOURCE */}
+                      <td className="px-6 py-5 text-sm uppercase tracking-[0.1em] text-gray-500">
+                        {order.source || "Customer"}
+                      </td>
+
+                      {/* DATE */}
+                      <td className="px-6 py-5">
+                        {order.created_at || "No Date"}
+                      </td>
+
+                    </tr>
+
+                  ))
+
+                ) : (
+
+                  <tr>
+
+                    <td
+                      colSpan="6"
+                      className="text-center py-10 text-gray-400 text-sm"
+                    >
+                      No orders found
+                    </td>
+
+                  </tr>
+
+                )}
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </main>
 
     </div>
+
   );
+
 }

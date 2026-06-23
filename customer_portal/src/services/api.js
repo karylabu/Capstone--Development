@@ -1,5 +1,7 @@
 // src/services/api.js
-const BASE_URL = 'http://localhost/pastry_system/customer';
+import { CUSTOMER_BASE } from './config';
+
+const BASE_URL = CUSTOMER_BASE;
 
 export const api = {
   getProducts: async () => {
@@ -11,5 +13,5 @@ export const api = {
       return [];
     }
   },
-  // Magdagdag dito ng postOrder, login, etc. later
+  // Add other centralized API helpers here
 };

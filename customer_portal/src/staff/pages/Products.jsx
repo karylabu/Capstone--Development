@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import StaffNavbar from "../components/StaffNavbar";
 
-const BASE = "http://localhost/GitHub/Capstone--Development";
+const BASE = "http://localhost/Capstone--Development";
 
 export default function Products() {
 

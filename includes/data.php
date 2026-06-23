@@ -4,6 +4,19 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Ensure compatibility helpers exist (db(), db_all(), db_run(), etc.).
+$compat = __DIR__ . '/../laravel/legacy_compat.php';
+if (file_exists($compat)) {
+    require_once $compat;
+}
+
+if (!function_exists('db_all')) {
+    trigger_error(
+        'Legacy DB compatibility helpers not found. Please verify laravel/legacy_compat.php is accessible.',
+        E_USER_ERROR
+    );
+}
+
 require_once __DIR__ . '/db.php';
 
 /* =========================

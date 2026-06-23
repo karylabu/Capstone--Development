@@ -19,6 +19,21 @@ CREATE TABLE IF NOT EXISTS users (
 ");
 
 /* =========================
+   CREATE PASSWORD RESETS TABLE
+========================= */
+
+mysqli_query($conn, "
+CREATE TABLE IF NOT EXISTS password_resets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    token VARCHAR(64) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+");
+
+/* =========================
    LOGIN
 ========================= */
 
@@ -26,7 +41,7 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $email = trim($_POST['email'] ?? '');
+    $email    = trim($_POST['email'] ?? '');
     $password = trim($_POST['password'] ?? '');
 
     if (!$email || !$password) {
@@ -52,18 +67,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ) {
 
                 $_SESSION['user'] = [
-                    'id' => $user['id'],
-                    'name' => $user['name'],
+                    'id'    => $user['id'],
+                    'name'  => $user['name'],
                     'email' => $user['email'],
-                    'role' => $user['role']
+                    'role'  => $user['role']
                 ];
 
-                /* =========================
-                   REDIRECT TO REACT APP
-                ========================= */
-
-               header("Location: http://localhost:3000/pastry_system/customer");
-exit;
+                header("Location: http://localhost:3000/pastry_system/customer");
+                exit;
 
             } else {
 
@@ -101,12 +112,7 @@ exit;
 
 body{
     min-height:100vh;
-    background:
-    linear-gradient(
-        135deg,
-        #fff7f8,
-        #ffe3eb
-    );
+    background: linear-gradient(135deg, #fff7f8, #ffe3eb);
     display:flex;
     align-items:center;
     justify-content:center;
@@ -145,8 +151,7 @@ body{
     border:1px solid rgba(255,255,255,.4);
     padding:42px;
     border-radius:34px;
-    box-shadow:
-    0 10px 40px rgba(0,0,0,.08);
+    box-shadow: 0 10px 40px rgba(0,0,0,.08);
     position:relative;
     z-index:10;
 }
@@ -203,6 +208,21 @@ h1{
     box-shadow:0 0 0 4px rgba(212,175,55,.15);
 }
 
+.forgot-link{
+    display:block;
+    text-align:right;
+    font-size:13px;
+    color:#d4af37;
+    text-decoration:none;
+    margin-top:-10px;
+    margin-bottom:18px;
+    font-weight:600;
+}
+
+.forgot-link:hover{
+    text-decoration:underline;
+}
+
 button{
     width:100%;
     height:58px;
@@ -242,15 +262,8 @@ button:hover{
 }
 
 @media(max-width:500px){
-
-    .card{
-        margin:20px;
-        padding:30px;
-    }
-
-    h1{
-        font-size:34px;
-    }
+    .card{ margin:20px; padding:30px; }
+    h1{ font-size:34px; }
 }
 
 </style>
@@ -263,20 +276,14 @@ button:hover{
 
 <div class="card">
 
-    <div class="logo">
-        Pastry Project
-    </div>
+    <div class="logo">Pastry Project</div>
 
     <h1>Login</h1>
 
-    <p class="subtitle">
-        Welcome back to your account
-    </p>
+    <p class="subtitle">Welcome back to your account</p>
 
     <?php if($error): ?>
-        <div class="error">
-            <?php echo $error; ?>
-        </div>
+        <div class="error"><?php echo $error; ?></div>
     <?php endif; ?>
 
     <form method="POST">
@@ -299,21 +306,18 @@ button:hover{
             >
         </div>
 
-        <button type="submit">
-            Login
-        </button>
+        <a class="forgot-link" href="forgot_password.php">Forgot password?</a>
+
+        <button type="submit">Login</button>
 
     </form>
 
     <div class="bottom">
         Don't have an account?
-        <a href="register.php">
-            Sign up first
-        </a>
+        <a href="register.php">Sign up first</a>
     </div>
 
 </div>
 
 </body>
 </html>
-

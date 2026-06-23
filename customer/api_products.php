@@ -62,6 +62,81 @@ if ($action === 'list') {
     exit;
 }
 
+if ($action === 'edit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $input = json_decode(file_get_contents('php://input'), true);
+
+    $id = $input['id'] ?? null;
+    $name = trim($input['name'] ?? '');
+    $category = trim($input['category'] ?? '');
+
+    if (!$id || $name === '' || $category === '') {
+        echo json_encode([
+            'success' => false,
+            'error' => 'Missing required product data.'
+        ]);
+        exit;
+    }
+
+    $price = is_numeric($input['price']) ? $input['price'] : 0;
+    $slice_price = is_numeric($input['slice_price']) ? $input['slice_price'] : 0;
+    $small_price = is_numeric($input['small_price']) ? $input['small_price'] : 0;
+    $big_price = is_numeric($input['big_price']) ? $input['big_price'] : 0;
+    $meal_price = is_numeric($input['meal_price']) ? $input['meal_price'] : 0;
+    $combo_price = is_numeric($input['combo_price']) ? $input['combo_price'] : 0;
+
+    $solo_price = isset($input['solo_price']) && $input['solo_price'] !== ''
+        ? (is_numeric($input['solo_price']) ? $input['solo_price'] : null)
+        : null;
+
+    $sharing_price = isset($input['sharing_price']) && $input['sharing_price'] !== ''
+        ? (is_numeric($input['sharing_price']) ? $input['sharing_price'] : null)
+        : null;
+
+    try {
+        $sql = "
+            UPDATE products SET
+                name = :name,
+                category = :category,
+                price = :price,
+                solo_price = :solo_price,
+                sharing_price = :sharing_price,
+                slice_price = :slice_price,
+                small_price = :small_price,
+                big_price = :big_price,
+                meal_price = :meal_price,
+                combo_price = :combo_price
+            WHERE id = :id
+        ";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':name' => $name,
+            ':category' => $category,
+            ':price' => $price,
+            ':solo_price' => $solo_price,
+            ':sharing_price' => $sharing_price,
+            ':slice_price' => $slice_price,
+            ':small_price' => $small_price,
+            ':big_price' => $big_price,
+            ':meal_price' => $meal_price,
+            ':combo_price' => $combo_price,
+            ':id' => $id,
+        ]);
+
+        echo json_encode(['success' => true]);
+        exit;
+
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'error' => 'Update failed.',
+            'details' => $e->getMessage()
+        ]);
+        exit;
+    }
+}
+
 /* =========================================================
    2. CUSTOM CAKE ORDER
 ========================================================= */

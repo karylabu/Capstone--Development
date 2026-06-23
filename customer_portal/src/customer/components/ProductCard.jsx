@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BASE } from '../../services/config';
 
 export default function ProductCard({
   product,
@@ -72,7 +73,7 @@ export default function ProductCard({
         <img
           src={
             product.image
-              ? `http://localhost/pastry_system/uploads/${product.image}`
+              ? `${BASE}/uploads/${product.image}`
               : 'https://via.placeholder.com/150'
           }
           alt={product.name}

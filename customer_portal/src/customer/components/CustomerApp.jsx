@@ -29,6 +29,7 @@ export default function CustomerApp() {
     const newItem = {
       ...product,
       id: Date.now(),
+      product_id: product.id ?? product.product_id ?? null,
       qty: 1,
       price:
         Number(product.price) ||

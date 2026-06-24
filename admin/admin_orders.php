@@ -9,18 +9,36 @@ if (!isset($_SESSION['user'])) {
     exit;
 }
 
-$user = $_SESSION['user'];
-$userEmail = $user['email'] ?? '';
+/* ADMIN ONLY */
+if (($_SESSION['user']['role'] ?? '') !== 'admin') {
+    header("Location: ../dashboard.php");
+    exit;
+}
 
-/* CUSTOMER ORDERS ONLY */
-$orders = array_filter($db['orders'], function($o) use ($userEmail){
-    return $o['email'] === $userEmail;
-});
+$user = $_SESSION['user'];
+
+/* UPDATE STATUS */
+if ($_POST && isset($_POST['update_status'])) {
+
+    $oid = (int)$_POST['order_id'];
+    $newStatus = $_POST['new_status'];
+
+    db_update_order_status($oid, $newStatus);
+
+    $_SESSION['success'] = "Order #$oid updated successfully.";
+
+    header("Location: admin_orders.php");
+    exit;
+}
+
+/* GET ORDERS */
+$orders = $db['orders'];
 
 /* FILTER */
 $filter = $_GET['filter'] ?? 'all';
 
 if ($filter !== 'all') {
+
     $orders = array_filter($orders, function($o) use ($filter){
         return strtolower($o['status']) === strtolower($filter);
     });
@@ -33,7 +51,7 @@ $orders = array_reverse($orders);
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>My Orders</title>
+<title>Admin Orders</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 
@@ -108,15 +126,6 @@ body{
     gap:12px;
 }
 
-.search-box{
-    padding:10px 16px;
-    border-radius:20px;
-    border:1px solid #ddd;
-    outline:none;
-    width:200px;
-    font-size:13px;
-}
-
 .icon-btn{
     position:relative;
     background:#f3f3f3;
@@ -129,11 +138,6 @@ body{
     cursor:pointer;
     text-decoration:none;
     color:#111;
-}
-
-.cart-dark{
-    background:#111;
-    color:#fff;
 }
 
 .account-btn{
@@ -168,6 +172,15 @@ body{
 
 h2{
     font-family:'Playfair Display';
+    margin-bottom:20px;
+}
+
+/* ALERT */
+.alert{
+    background:#d4edda;
+    color:#155724;
+    padding:12px;
+    border-radius:10px;
     margin-bottom:20px;
 }
 
@@ -245,6 +258,22 @@ tr:hover{
     color:#3d3db3;
 }
 
+/* FORM */
+select{
+    padding:8px;
+    border-radius:8px;
+    border:1px solid #ddd;
+}
+
+.btn{
+    padding:8px 12px;
+    border:none;
+    background:#111;
+    color:#fff;
+    border-radius:8px;
+    cursor:pointer;
+}
+
 .empty{
     background:#fff;
     padding:40px;
@@ -271,34 +300,24 @@ tr:hover{
         </div>
 
         <div class="nav-links">
-            <a href="dashboard.php">DASHBOARD</a>
-            <a href="products.php">PRODUCTS</a>
-            <a href="orders.php" class="active">ORDERS</a>
+            <a href="admin_dashboard.php">DASHBOARD</a>
+            <a href="admin_products.php">PRODUCTS</a>
+            <a href="admin_orders.php" class="active">ORDERS</a>
         </div>
 
     </div>
 
     <div class="nav-right">
 
-        <input type="text" placeholder="Search..." class="search-box">
-
         <!-- NOTIFICATIONS -->
-        <a href="notifications.php" class="icon-btn">
+        <a href="../notifications.php" class="icon-btn">
             🔔
-            <span class="icon-badge" id="notifBadge">0</span>
-        </a>
-
-        <!-- CART -->
-        <a href="cart.php" class="icon-btn cart-dark">
-            🛒
-            <span class="icon-badge" id="cartCountBadge">
-                <?= $_SESSION['cart_count'] ?? 0 ?>
-            </span>
+            <span class="icon-badge">0</span>
         </a>
 
         <!-- ACCOUNT -->
-        <a href="account.php" class="account-btn">
-            👤 <?= $_SESSION['user']['name'] ?? 'Account' ?>
+        <a href="../account.php" class="account-btn">
+            👤 <?= $_SESSION['user']['name'] ?? 'Admin' ?>
         </a>
 
     </div>
@@ -307,7 +326,15 @@ tr:hover{
 
 <div class="container">
 
-<h2>My Orders</h2>
+<h2>Admin Orders</h2>
+
+<?php if(isset($_SESSION['success'])): ?>
+
+<div class="alert">
+    <?= $_SESSION['success']; unset($_SESSION['success']); ?>
+</div>
+
+<?php endif; ?>
 
 <!-- FILTER -->
 <div class="order-tabs">
@@ -337,11 +364,13 @@ class="order-tab <?= $filter==$f?'active':'' ?>">
 
 <thead>
 <tr>
-    <th>Order</th>
+    <th>ID</th>
+    <th>Customer</th>
     <th>Items</th>
     <th>Total</th>
     <th>Status</th>
     <th>Date</th>
+    <th>Update</th>
 </tr>
 </thead>
 
@@ -353,17 +382,24 @@ class="order-tab <?= $filter==$f?'active':'' ?>">
 
 <td>
     <strong>#<?= $o['id'] ?></strong><br>
-    <small><?= htmlspecialchars($o['address']) ?></small>
+    <small><?= $o['address'] ?></small>
 </td>
 
 <td>
+    <?= $o['customer'] ?><br>
+    <small><?= $o['email'] ?></small>
+</td>
+
+<td>
+
 <?php foreach($o['items'] as $item): ?>
 
 <div>
-    <?= $item['qty'] ?>x <?= htmlspecialchars($item['product']) ?>
+    <?= $item['qty'] ?>x <?= $item['product'] ?>
 </div>
 
 <?php endforeach; ?>
+
 </td>
 
 <td>
@@ -377,13 +413,49 @@ $statusClass = strtolower($o['status']);
 ?>
 
 <span class="status <?= $statusClass ?>">
-    <?= htmlspecialchars($o['status']) ?>
+    <?= $o['status'] ?>
 </span>
 
 </td>
 
 <td>
-    <?= htmlspecialchars($o['date']) ?>
+    <?= $o['date'] ?>
+</td>
+
+<td>
+
+<form method="POST">
+
+<input type="hidden"
+name="order_id"
+value="<?= $o['id'] ?>">
+
+<select name="new_status">
+
+<?php foreach(['Pending','Confirmed','Preparing','Completed'] as $s): ?>
+
+<option
+<?= $o['status']==$s?'selected':'' ?>>
+
+<?= $s ?>
+
+</option>
+
+<?php endforeach; ?>
+
+</select>
+
+<button
+type="submit"
+name="update_status"
+class="btn">
+
+Update
+
+</button>
+
+</form>
+
 </td>
 
 </tr>
@@ -397,28 +469,6 @@ $statusClass = strtolower($o['status']);
 <?php endif; ?>
 
 </div>
-
-<script>
-// CART COUNT
-function loadCartCount(){
-  fetch('../cart_api.php?action=count')
-    .then(res=>res.json())
-    .then(data=>{
-      document.getElementById('cartCountBadge').innerText = data.count || 0;
-    });
-}
-loadCartCount();
-
-// NOTIF COUNT
-function loadNotifCount(){
-  fetch('../notifications_api.php?action=count')
-    .then(res=>res.json())
-    .then(data=>{
-      document.getElementById('notifBadge').innerText = data.count || 0;
-    });
-}
-loadNotifCount();
-</script>
 
 </body>
 </html>

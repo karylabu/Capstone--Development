@@ -1,45 +1,45 @@
 <?php
-error_reporting(0);
-ini_set('display_errors', 0);
 
-// CORS: echo origin when allowed and allow credentials only for allowed origins
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-$allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3001',
-    'http://127.0.0.1:3002',
-    'http://localhost',
-    'http://127.0.0.1',
-];
-if ($origin && in_array($origin, $allowedOrigins, true)) {
-    header("Access-Control-Allow-Origin: " . $origin);
-    header('Access-Control-Allow-Credentials: true');
-} else {
-    header('Access-Control-Allow-Origin: *');
-}
-header('Vary: Origin');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
-header('Content-Type: application/json');
+require_once __DIR__ . '/cors.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit;
-}
+try {
+    $conn = mysqli_connect("localhost", "root", "", "pastry_db");
+    if (!$conn) {
+        throw new Exception("Database Connection Failed");
+    }
 
-session_start();
+    if (empty($_SESSION['user'])) {
+        echo json_encode([
+            "status" => "error",
+            "message" => "Not logged in"
+        ]);
+        exit;
+    }
 
-if (isset($_SESSION['user'])) {
+    $user_id = (int)$_SESSION['user']['id'];
+    
+    // Get user info
+    $sql = "SELECT id, name, email, role FROM users WHERE id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows === 0) {
+        throw new Exception("User not found");
+    }
+
+    $user = $result->fetch_assoc();
+
     echo json_encode([
-        'logged_in' => true,
-        'user' => $_SESSION['user']
+        "status" => "success",
+        "user" => $user
     ]);
-} else {
+
+} catch (Exception $e) {
     echo json_encode([
-        'logged_in' => false
+        "status" => "error",
+        "message" => $e->getMessage()
     ]);
 }
 

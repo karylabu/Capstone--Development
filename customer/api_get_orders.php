@@ -1,35 +1,8 @@
 <?php
+require_once __DIR__ . '/cors.php';
 
 error_reporting(0);
 ini_set('display_errors', 0);
-
-// CORS: echo origin when allowed and allow credentials only for allowed origins
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-$allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3001',
-    'http://127.0.0.1:3002',
-    'http://localhost',
-    'http://127.0.0.1',
-];
-if ($origin && in_array($origin, $allowedOrigins, true)) {
-    header("Access-Control-Allow-Origin: " . $origin);
-    header('Access-Control-Allow-Credentials: true');
-} else {
-    header('Access-Control-Allow-Origin: *');
-}
-header('Vary: Origin');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
-header("Content-Type: application/json");
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit;
-}
 
 try {
     // Connect to database
@@ -38,22 +11,30 @@ try {
         throw new Exception("Database Connection Failed: " . mysqli_connect_error());
     }
 
-    // Get user_id from query parameter or POST data (prefer POST for security)
-    $user_id = null;
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $data = json_decode(file_get_contents("php://input"), true);
-        $user_id = intval($data['user_id'] ?? $_GET['user_id'] ?? 0);
-    } elseif (!empty($_GET['user_id'])) {
-        $user_id = intval($_GET['user_id']);
+    // Detect available columns in orders and order_items tables
+    $hasCustomer = false;
+    $hasEmail = false;
+    $hasOrderItems = false;
+
+    $columnsRes = mysqli_query($conn, "SHOW COLUMNS FROM orders");
+    if ($columnsRes) {
+        while ($col = mysqli_fetch_assoc($columnsRes)) {
+            if ($col['Field'] === 'customer') {
+                $hasCustomer = true;
+            }
+            if ($col['Field'] === 'email') {
+                $hasEmail = true;
+            }
+        }
     }
 
-    // Build SQL: filter by user_id if provided (for customers), otherwise return all (for admin panel)
-    if ($user_id > 0) {
-        $sql = "SELECT * FROM orders WHERE user_id = $user_id ORDER BY created_at DESC";
-    } else {
-        $sql = "SELECT * FROM orders ORDER BY created_at DESC";
+    $tablesRes = mysqli_query($conn, "SHOW TABLES LIKE 'order_items'");
+    if ($tablesRes && mysqli_num_rows($tablesRes) > 0) {
+        $hasOrderItems = true;
     }
-    
+
+    // Fetch all orders
+    $sql = "SELECT * FROM orders ORDER BY created_at DESC";
     $res = mysqli_query($conn, $sql);
 
     if (!$res) {
@@ -62,32 +43,42 @@ try {
 
     $orders = [];
     while ($row = mysqli_fetch_assoc($res)) {
-        // Decode items JSON
+        // Fetch the order's item lines from order_items when available.
+        // If order_items does not exist, try to parse the JSON items field from orders.
         $items = [];
-        if (!empty($row['items'])) {
-            $itemsDecoded = json_decode($row['items'], true);
-            if (is_array($itemsDecoded)) {
-                $items = $itemsDecoded;
+        if ($hasOrderItems) {
+            $itemsRes = mysqli_query($conn, "SELECT product, qty, price FROM order_items WHERE order_id = " . intval($row['id']));
+            if ($itemsRes) {
+                while ($itemRow = mysqli_fetch_assoc($itemsRes)) {
+                    $items[] = [
+                        "name" => $itemRow['product'],
+                        "product" => $itemRow['product'],
+                        "qty" => intval($itemRow['qty']),
+                        "price" => floatval($itemRow['price']),
+                    ];
+                }
+            }
+        } elseif (isset($row['items']) && $row['items'] !== '') {
+            $decoded = json_decode($row['items'], true);
+            if (is_array($decoded)) {
+                $items = $decoded;
             }
         }
 
         $orders[] = [
-            "id" => $row['id'],
-            "user_id" => intval($row['user_id'] ?? 0),
-            "customer" => $row['customer'] ?? '',
-            "email" => $row['email'] ?? '',
+            "id" => intval($row['id']),
+            "customer" => $hasCustomer ? ($row['customer'] ?? '') : '',
+            "email" => $hasEmail ? ($row['email'] ?? '') : '',
             "items" => $items,
-            "subtotal" => floatval($row['subtotal']),
-            "delivery_fee" => floatval($row['delivery_fee']),
             "total" => floatval($row['total']),
-            "method" => $row['method'],
-            "payment" => $row['payment'],
-            "address" => $row['address'],
-            "phone" => $row['phone'],
-            "lat" => floatval($row['lat']),
-            "lng" => floatval($row['lng']),
+            "payment" => $row['payment'] ?? '',
+            "address" => $row['address'] ?? '',
+            "notes" => $row['notes'] ?? '',
             "status" => $row['status'] ?? 'Pending', // default to Pending if status not set
-            "created_at" => $row['created_at'],
+            "order_date" => $row['order_date'] ?? '',
+            "created_at" => $row['created_at'] ?? '',
+            // expose notif_viewed so front-end can compute unread count
+            "notif_viewed" => isset($row['notif_viewed']) ? (int)$row['notif_viewed'] : 0,
         ];
     }
 
